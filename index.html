@@ -2608,8 +2608,8 @@ async function init() {
     $('selectedBar').classList.add('hidden');
     $('btnToCamera').classList.add('hidden');
     $('designTopTitle').textContent='디자인 선택';
-    renderDesignGrid();
     showScreen('screenDesign');
+    await loadDesigns();
   });
 
   $('btnModeIndividual').addEventListener('click', async ()=>{
@@ -2622,8 +2622,8 @@ async function init() {
     $('selectedBar').classList.add('hidden');
     $('btnToCamera').classList.add('hidden');
     $('designTopTitle').textContent='디자인 선택 (개별)';
-    renderSlotBar(); renderDesignGrid();
     showScreen('screenDesign');
+    renderSlotBar(); await loadDesigns();
   });
 
   /* ── 디자인 화면 ── */
