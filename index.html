@@ -1464,21 +1464,25 @@ const NAIL_LM = {
 };
 
 // Nail dimension params per finger
+// hRatio: TIP→DIP 거리 대비 손톱 높이 비율 (실측 기반 상향)
+// wRatio: 손톱 높이 대비 너비 비율
+// dipBlend: 네일 중심점 = TIP*(1-blend) + DIP*blend (클수록 아래)
 const FINGER_PARAMS = {
-  thumb:  { wRatio: 0.92, hRatio: 0.62, dipBlend: 0.35 },
-  index:  { wRatio: 0.84, hRatio: 0.60, dipBlend: 0.30 },
-  middle: { wRatio: 0.82, hRatio: 0.58, dipBlend: 0.28 },
-  ring:   { wRatio: 0.78, hRatio: 0.56, dipBlend: 0.28 },
-  pinky:  { wRatio: 0.72, hRatio: 0.54, dipBlend: 0.25 },
+  thumb:  { wRatio: 1.10, hRatio: 0.92, dipBlend: 0.52 },
+  index:  { wRatio: 0.95, hRatio: 0.88, dipBlend: 0.48 },
+  middle: { wRatio: 0.92, hRatio: 0.88, dipBlend: 0.46 },
+  ring:   { wRatio: 0.88, hRatio: 0.85, dipBlend: 0.46 },
+  pinky:  { wRatio: 0.82, hRatio: 0.82, dipBlend: 0.44 },
 };
 
 // Fallback template zones (normalized, rear camera, left hand facing camera)
+// rx/ry: 이미지 너비/높이 대비 반경 (크게 조정)
 const GUIDE_ZONES_REAR = [
-  { finger: 'thumb',  x: 0.16, y: 0.56, rx: 0.072, ry: 0.090, angleDeg: -32 },
-  { finger: 'index',  x: 0.32, y: 0.28, rx: 0.065, ry: 0.105, angleDeg:  -7 },
-  { finger: 'middle', x: 0.48, y: 0.20, rx: 0.065, ry: 0.112, angleDeg:   0 },
-  { finger: 'ring',   x: 0.64, y: 0.27, rx: 0.060, ry: 0.102, angleDeg:   7 },
-  { finger: 'pinky',  x: 0.79, y: 0.37, rx: 0.052, ry: 0.085, angleDeg:  14 },
+  { finger: 'thumb',  x: 0.15, y: 0.54, rx: 0.110, ry: 0.095, angleDeg: -32 },
+  { finger: 'index',  x: 0.32, y: 0.27, rx: 0.090, ry: 0.115, angleDeg:  -7 },
+  { finger: 'middle', x: 0.48, y: 0.19, rx: 0.088, ry: 0.120, angleDeg:   0 },
+  { finger: 'ring',   x: 0.64, y: 0.26, rx: 0.084, ry: 0.112, angleDeg:   7 },
+  { finger: 'pinky',  x: 0.79, y: 0.36, rx: 0.072, ry: 0.095, angleDeg:  14 },
 ];
 
 /* ────────────────────────────────────────────
@@ -1534,25 +1538,63 @@ function landmarksToZones(landmarkResult, videoW, videoH) {
 
       const fp = FINGER_PARAMS[finger];
 
-      // Distance TIP→DIP
+      // Distance TIP→DIP, DIP→PIP
       const tipDip = Math.hypot(tipX - dipX, tipY - dipY);
       const dipPip = Math.hypot(dipX - pipX, dipY - pipY);
       if (tipDip < 4 || dipPip < 4) return;
 
-      // Nail center: weighted toward TIP
-      const blend = fp.dipBlend;
-      const cx = tipX * (1 - blend) + dipX * blend;
-      const cy = tipY * (1 - blend) + dipY * blend;
+      // ── 엄지 전용 처리 ──
+      // 엄지는 다른 손가락과 완전히 다른 각도/비율을 가짐
+      // MCP 랜드마크까지 활용해서 축 방향 정확히 계산
+      let cx, cy, h, w, angle;
 
-      const h  = tipDip * fp.hRatio;
-      const w  = h * fp.wRatio;
+      if (finger === 'thumb') {
+        const mcp = landmarks[NAIL_LM.thumb.mcp];
+        const mcpX = mcp ? toX(mcp) : pipX;
+        const mcpY = mcp ? toY(mcp) : pipY;
 
-      // Angle: direction from DIP to TIP, then subtract 90° to get nail normal
-      // This gives the angle of the finger axis relative to vertical
-      const rawAngle = Math.atan2(tipY - dipY, tipX - dipX);
-      // The nail surface is perpendicular to finger axis
-      // finger pointing up = atan2 ≈ -π/2 → nail angle = 0
-      const angle = rawAngle + Math.PI / 2;
+        // 엄지 축: MCP → TIP 전체 방향으로 각도 계산 (더 안정적)
+        const thumbAxisAngle = Math.atan2(tipY - mcpY, tipX - mcpX);
+        angle = thumbAxisAngle + Math.PI / 2;
+
+        // 엄지 중심: TIP에서 DIP 방향으로 fp.dipBlend 비율
+        cx = tipX * (1 - fp.dipBlend) + dipX * fp.dipBlend;
+        cy = tipY * (1 - fp.dipBlend) + dipY * fp.dipBlend;
+
+        // 엄지 크기: tipDip 기반이지만 MCP까지 거리도 고려
+        const thumbLen = Math.hypot(tipX - mcpX, tipY - mcpY);
+        h = Math.max(tipDip * fp.hRatio, thumbLen * 0.38);
+        w = h * fp.wRatio;
+
+      } else {
+        // ── 일반 손가락 처리 ──
+        // 중심점: TIP*(1-blend) + DIP*blend
+        const blend = fp.dipBlend;
+        cx = tipX * (1 - blend) + dipX * blend;
+        cy = tipY * (1 - blend) + dipY * blend;
+
+        h = tipDip * fp.hRatio;
+        w = h * fp.wRatio;
+
+        // 각도: DIP→TIP 방향 기준
+        // canvas Y축은 아래가 + 이므로 +π/2 보정
+        const rawAngle = Math.atan2(tipY - dipY, tipX - dipX);
+        angle = rawAngle + Math.PI / 2;
+      }
+
+      // ── 최소 크기 보장 ──
+      // 화면에서 너무 작게 나오는 경우 강제 보정
+      // 이미지 짧은 변의 최소 6% 이상
+      const minDim = Math.min(videoW, videoH) * 0.06;
+      if (h < minDim) { const r = minDim / h; h = minDim; w *= r; }
+      if (w < minDim * 0.5) w = minDim * 0.5;
+
+      // ── 최대 크기 제한 ──
+      // 이미지 너비의 22% 초과 방지
+      const maxW = videoW * 0.22;
+      const maxH = videoH * 0.25;
+      if (w > maxW) { const r = maxW / w; w = maxW; h *= r; }
+      if (h > maxH) { const r = maxH / h; h = maxH; w *= r; }
 
       // Boundary check
       const margin = Math.max(w, h) * 0.6;
@@ -1564,7 +1606,7 @@ function landmarksToZones(landmarkResult, videoW, videoH) {
     });
   });
 
-  return zones.length >= 2 ? zones : null;
+  return zones.length >= 1 ? zones : null;
 }
 
 /* ────────────────────────────────────────────
@@ -1641,7 +1683,7 @@ function drawNailOverlay(ctx, zone, designImg, cfg) {
   shapeFn(hw, hh, ctx);
   ctx.clip();
 
-  // Fit design (cover)
+  // Pass 1: 디자인 이미지 (메인)
   const iw = designImg.naturalWidth || designImg.width;
   const ih = designImg.naturalHeight || designImg.height;
   let dw, dh;
@@ -1649,26 +1691,71 @@ function drawNailOverlay(ctx, zone, designImg, cfg) {
   else                    { dw = nw; dh = dw * (ih / iw); }
 
   ctx.globalAlpha = cfg.opacity;
+  ctx.globalCompositeOperation = 'source-over';
   ctx.drawImage(designImg, -dw/2, -dh/2, dw, dh);
 
-  // Gloss pass
-  ctx.globalCompositeOperation = 'screen';
-  ctx.globalAlpha = 0.22;
-  const grd = ctx.createRadialGradient(-hw*.18, -hh*.28, 0, -hw*.06, -hh*.15, nw*.52);
-  grd.addColorStop(0, 'rgba(255,255,255,0.92)');
-  grd.addColorStop(.30, 'rgba(255,255,255,0.28)');
-  grd.addColorStop(.65, 'rgba(255,255,255,0.06)');
-  grd.addColorStop(1, 'rgba(255,255,255,0)');
-  ctx.fillStyle = grd;
+  // Pass 2: Multiply 블렌딩 (피부톤 자연스럽게 녹아들기)
+  ctx.globalCompositeOperation = 'multiply';
+  ctx.globalAlpha = 0.12;
+  ctx.drawImage(designImg, -dw/2, -dh/2, dw, dh);
+
+  // Pass 3: 큐티클 아래쪽 그림자 (손톱 아래 자연스럽게)
+  ctx.globalCompositeOperation = 'multiply';
+  ctx.globalAlpha = 0.32;
+  const shadowGrd = ctx.createLinearGradient(0, hh * 0.40, 0, nh);
+  shadowGrd.addColorStop(0, 'rgba(22,14,8,0)');
+  shadowGrd.addColorStop(1, 'rgba(22,14,8,0.90)');
+  ctx.fillStyle = shadowGrd;
   ctx.fillRect(-nw, -nh, nw*2, nh*2);
 
-  // Cuticle darkening
+  // Pass 4: 광택 (메인 하이라이트 — 손톱 상단 왼쪽)
+  ctx.globalCompositeOperation = 'screen';
+  ctx.globalAlpha = 0.30;
+  const gloss1 = ctx.createRadialGradient(
+    -hw * 0.20, -hh * 0.30, 0,
+    -hw * 0.05, -hh * 0.12, nw * 0.58
+  );
+  gloss1.addColorStop(0,    'rgba(255,255,255,0.95)');
+  gloss1.addColorStop(0.28, 'rgba(255,255,255,0.35)');
+  gloss1.addColorStop(0.60, 'rgba(255,255,255,0.08)');
+  gloss1.addColorStop(1,    'rgba(255,255,255,0)');
+  ctx.fillStyle = gloss1;
+  ctx.fillRect(-nw, -nh, nw*2, nh*2);
+
+  // Pass 5: 보조 광택 (오른쪽 아래 — 입체감)
+  ctx.globalAlpha = 0.10;
+  const gloss2 = ctx.createRadialGradient(
+    hw * 0.25, hh * 0.22, 0,
+    hw * 0.25, hh * 0.22, nw * 0.28
+  );
+  gloss2.addColorStop(0, 'rgba(255,255,255,0.75)');
+  gloss2.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = gloss2;
+  ctx.fillRect(-nw, -nh, nw*2, nh*2);
+
+  // Pass 6: 좌우 림 그림자 (손톱 경계 자연스럽게)
   ctx.globalCompositeOperation = 'multiply';
-  ctx.globalAlpha = 0.26;
-  const cg = ctx.createLinearGradient(0, hh*.50, 0, nh);
-  cg.addColorStop(0, 'rgba(20,14,10,0)');
-  cg.addColorStop(1, 'rgba(20,14,10,0.85)');
-  ctx.fillStyle = cg;
+  ctx.globalAlpha = 0.18;
+  const rimL = ctx.createLinearGradient(-nw*0.72, 0, -nw*0.20, 0);
+  rimL.addColorStop(0, 'rgba(15,10,5,0.70)');
+  rimL.addColorStop(1, 'rgba(15,10,5,0)');
+  ctx.fillStyle = rimL;
+  ctx.fillRect(-nw, -nh, nw*2, nh*2);
+
+  const rimR = ctx.createLinearGradient(nw*0.72, 0, nw*0.20, 0);
+  rimR.addColorStop(0, 'rgba(15,10,5,0.70)');
+  rimR.addColorStop(1, 'rgba(15,10,5,0)');
+  ctx.fillStyle = rimR;
+  ctx.fillRect(-nw, -nh, nw*2, nh*2);
+
+  // Pass 7: 표면 미세 광택 (전체 반짝임)
+  ctx.globalCompositeOperation = 'screen';
+  ctx.globalAlpha = 0.05;
+  const sheen = ctx.createLinearGradient(-hw*0.5, -nh, hw*0.5, nh*0.4);
+  sheen.addColorStop(0,   'rgba(255,255,255,0.60)');
+  sheen.addColorStop(0.5, 'rgba(255,255,255,0)');
+  sheen.addColorStop(1,   'rgba(200,220,255,0.20)');
+  ctx.fillStyle = sheen;
   ctx.fillRect(-nw, -nh, nw*2, nh*2);
 
   ctx.restore();
@@ -1863,7 +1950,15 @@ async function snap() {
     zones = getGuideZones(video.videoWidth, video.videoHeight);
     toast('손톱 위치를 자동으로 추정합니다', 2000);
   } else {
-    toast(`${zones.length}개 손톱 인식 완료 ✓`, 1500);
+    // ── 누락된 손가락 가이드존으로 자동 보완 ──
+    const detectedFingers = new Set(zones.map(z => z.finger));
+    const guideZones = getGuideZones(video.videoWidth, video.videoHeight);
+    const missing = guideZones.filter(g => !detectedFingers.has(g.finger));
+    if (missing.length > 0) {
+      zones = [...zones, ...missing];
+      console.log('[Snap] 보완된 손가락:', missing.map(z => z.finger));
+    }
+    toast(`${detectedFingers.size}개 인식 + ${missing.length}개 보완 완료 ✓`, 1800);
   }
 
   // Capture frame
