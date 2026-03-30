@@ -2585,12 +2585,10 @@ async function init() {
   if (typeof TEST_DESIGNS_DATA !== 'undefined') {
     const existing = await DB.list();
     const existingTestIds = existing.filter(d => d.is_test).map(d => d.id);
-    if (existingTestIds.length === 0) {
-      for (const d of TEST_DESIGNS_DATA) {
-        await DB.add(d);
-      }
-      console.log('[TEST] 테스트 디자인 6개 자동 로드 완료');
-    }
+    // 기존 테스트 항목 모두 삭제 후 재삽입 (항상 최신 이미지 반영)
+    for (const id of existingTestIds) { await DB.remove(id); }
+    for (const d of TEST_DESIGNS_DATA) { await DB.add(d); }
+    console.log('[TEST] 테스트 디자인 6개 강제 재로드 완료');
   }
   // ── 테스트 자동 로드 끝 ──
 
