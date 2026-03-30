@@ -1,0 +1,2692 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="theme-color" content="#0a0a0a"/>
+<title>SYONI LAB — Virtual Nail Try-On</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+<style>
+/* ═══════════════════════════════════════════
+   TOKENS & RESET
+═══════════════════════════════════════════ */
+:root {
+  --gold:      #c8a56a;
+  --gold-lt:   #e8d5b0;
+  --gold-dk:   #8a6d42;
+  --ink:       #0e0c0a;
+  --ink2:      #1e1b16;
+  --ink3:      #2e2a22;
+  --smoke:     #f5f2ed;
+  --smoke2:    #ede8e0;
+  --dust:      #b0a898;
+  --white:     #ffffff;
+  --red:       #c0392b;
+  --green:     #27ae60;
+
+  --ff-serif:  'Cormorant Garamond', Georgia, serif;
+  --ff-sans:   'DM Sans', system-ui, sans-serif;
+
+  --safe-top:    env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left:   env(safe-area-inset-left, 0px);
+  --safe-right:  env(safe-area-inset-right, 0px);
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  height: 100%; width: 100%;
+  overflow: hidden;
+  background: var(--ink);
+  color: var(--smoke);
+  font-family: var(--ff-sans);
+  font-size: 15px;
+  -webkit-font-smoothing: antialiased;
+  overscroll-behavior: none;
+  touch-action: manipulation;
+}
+
+button { cursor: pointer; border: none; background: none; font-family: inherit; }
+img { display: block; max-width: 100%; }
+input { font-family: inherit; }
+
+/* ═══════════════════════════════════════════
+   LAYOUT — SCREENS
+═══════════════════════════════════════════ */
+.screen {
+  position: fixed; inset: 0;
+  display: flex; flex-direction: column;
+  opacity: 0; pointer-events: none;
+  transition: opacity .3s ease;
+  overflow: hidden;
+}
+.screen.active {
+  opacity: 1; pointer-events: auto;
+}
+
+/* ═══════════════════════════════════════════
+   SCREEN 0 — SPLASH / MODE SELECT
+═══════════════════════════════════════════ */
+#screenMode {
+  background: var(--ink);
+  align-items: center; justify-content: center;
+  gap: 0;
+  padding: calc(var(--safe-top) + 48px) 32px calc(var(--safe-bottom) + 48px);
+}
+
+.logo-wrap {
+  display: flex; flex-direction: column; align-items: center;
+  margin-bottom: 56px;
+}
+.logo-diamond {
+  width: 48px; height: 48px;
+  border: 1.5px solid var(--gold);
+  transform: rotate(45deg);
+  margin-bottom: 24px;
+  position: relative;
+}
+.logo-diamond::after {
+  content: '';
+  position: absolute; inset: 6px;
+  border: 1px solid var(--gold-dk);
+}
+.logo-name {
+  font-family: var(--ff-serif);
+  font-size: 2.4rem; font-weight: 300;
+  letter-spacing: .18em;
+  color: var(--gold-lt);
+  text-transform: uppercase;
+}
+.logo-sub {
+  font-size: .72rem; letter-spacing: .28em;
+  color: var(--dust);
+  text-transform: uppercase;
+  margin-top: 6px;
+}
+
+.mode-cards {
+  display: flex; flex-direction: column; gap: 14px;
+  width: 100%; max-width: 320px;
+}
+.mode-card {
+  width: 100%;
+  padding: 22px 24px;
+  background: var(--ink2);
+  border: 1px solid var(--ink3);
+  border-radius: 12px;
+  text-align: left;
+  transition: border-color .2s, background .2s;
+  position: relative; overflow: hidden;
+}
+.mode-card::before {
+  content: '';
+  position: absolute; top: 0; left: 0;
+  width: 3px; height: 100%;
+  background: var(--gold);
+  opacity: 0;
+  transition: opacity .2s;
+}
+.mode-card:active { background: var(--ink3); }
+.mode-card:active::before { opacity: 1; }
+.mode-icon {
+  font-size: 1.6rem; margin-bottom: 10px;
+}
+.mode-title {
+  font-family: var(--ff-serif);
+  font-size: 1.3rem; font-weight: 400;
+  color: var(--gold-lt);
+  margin-bottom: 4px;
+}
+.mode-desc {
+  font-size: .78rem; color: var(--dust);
+  line-height: 1.5; letter-spacing: .02em;
+}
+
+.admin-trigger {
+  position: fixed;
+  top: calc(var(--safe-top) + 16px);
+  right: 20px;
+  width: 44px; height: 44px;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--ink3);
+  font-size: 1.1rem;
+  z-index: 100;
+}
+.admin-trigger:active { color: var(--dust); }
+
+/* ═══════════════════════════════════════════
+   SCREEN 1 — DESIGN SELECT
+═══════════════════════════════════════════ */
+#screenDesign {
+  background: var(--smoke);
+  color: var(--ink);
+}
+
+.topbar {
+  display: flex; align-items: center;
+  padding: calc(var(--safe-top) + 14px) 16px 14px;
+  background: var(--white);
+  border-bottom: 1px solid var(--smoke2);
+  gap: 12px;
+  flex-shrink: 0;
+}
+.topbar-back {
+  width: 40px; height: 40px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.1rem; color: var(--ink);
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+.topbar-title {
+  font-family: var(--ff-serif);
+  font-size: 1.3rem; font-weight: 400;
+  flex: 1;
+}
+.topbar-action {
+  font-size: .78rem; color: var(--gold-dk);
+  letter-spacing: .04em; padding: 8px 4px;
+}
+
+/* Cat filter */
+.cat-bar {
+  display: flex; gap: 8px;
+  padding: 12px 16px;
+  overflow-x: auto;
+  background: var(--white);
+  border-bottom: 1px solid var(--smoke2);
+  flex-shrink: 0;
+  scrollbar-width: none;
+}
+.cat-bar::-webkit-scrollbar { display: none; }
+.cat-btn {
+  flex-shrink: 0;
+  padding: 7px 14px;
+  border-radius: 20px;
+  font-size: .78rem; letter-spacing: .04em;
+  color: var(--dust);
+  background: var(--smoke);
+  transition: all .2s;
+  border: 1px solid transparent;
+}
+.cat-btn.active {
+  background: var(--ink);
+  color: var(--gold-lt);
+  border-color: var(--ink);
+}
+
+/* Slot bar (individual mode) */
+.slot-bar {
+  background: var(--white);
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--smoke2);
+  flex-shrink: 0;
+}
+.slot-bar.hidden { display: none; }
+.slot-row {
+  display: flex; gap: 6px; margin-bottom: 6px;
+  overflow-x: auto; scrollbar-width: none;
+}
+.slot-row::-webkit-scrollbar { display: none; }
+.slot-btn {
+  flex-shrink: 0;
+  width: 44px; height: 36px;
+  border-radius: 6px;
+  font-size: .7rem; font-weight: 500;
+  color: var(--dust);
+  background: var(--smoke);
+  border: 1.5px solid transparent;
+  transition: all .15s;
+  position: relative;
+}
+.slot-btn.active {
+  background: var(--ink2);
+  color: var(--gold-lt);
+  border-color: var(--gold-dk);
+}
+.slot-btn.filled::after {
+  content: '';
+  position: absolute; top: 3px; right: 3px;
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  background: var(--gold);
+}
+.slot-label {
+  font-size: .72rem; color: var(--dust);
+  letter-spacing: .02em;
+}
+
+/* Selected bar */
+.selected-bar {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 16px;
+  background: var(--ink); color: var(--smoke);
+  flex-shrink: 0;
+}
+.selected-bar.hidden { display: none; }
+.sb-thumb {
+  width: 40px; height: 40px;
+  border-radius: 6px; object-fit: cover;
+  border: 1px solid var(--ink3);
+}
+.sb-info { flex: 1; min-width: 0; }
+.sb-name { font-size: .84rem; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sb-meta { font-size: .72rem; color: var(--dust); }
+.sb-next {
+  padding: 10px 18px;
+  background: var(--gold);
+  color: var(--ink);
+  border-radius: 8px;
+  font-size: .82rem; font-weight: 500;
+  flex-shrink: 0;
+}
+
+/* Design grid */
+.design-scroll {
+  flex: 1; overflow-y: auto;
+  padding: 12px;
+  background: var(--smoke);
+}
+.design-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+.d-card {
+  aspect-ratio: 3/4;
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--smoke2);
+  position: relative;
+  cursor: pointer;
+  transition: transform .15s;
+}
+.d-card:active { transform: scale(.96); }
+.d-card img {
+  width: 100%; height: 100%;
+  object-fit: cover;
+}
+.d-card-name {
+  position: absolute; bottom: 0; left: 0; right: 0;
+  padding: 20px 6px 6px;
+  background: linear-gradient(transparent, rgba(0,0,0,.65));
+  font-size: .65rem; color: #fff;
+  line-height: 1.2;
+}
+.d-card-badge {
+  position: absolute; top: 5px; right: 5px;
+  padding: 2px 6px;
+  background: rgba(0,0,0,.55);
+  border-radius: 3px;
+  font-size: .58rem; color: rgba(255,255,255,.85);
+  letter-spacing: .04em;
+}
+.d-card.selected::after {
+  content: '✓';
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(200,165,106,.35);
+  font-size: 1.8rem; color: var(--white);
+  border: 2px solid var(--gold);
+  border-radius: 8px;
+}
+.d-empty {
+  grid-column: 1/-1;
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--dust);
+  font-size: .84rem;
+}
+.d-loading {
+  grid-column: 1/-1;
+  text-align: center;
+  padding: 60px;
+  color: var(--dust);
+}
+
+/* ═══════════════════════════════════════════
+   SCREEN 2 — CAMERA / LIVE AR
+═══════════════════════════════════════════ */
+#screenCamera {
+  background: #000;
+}
+
+.cam-wrap {
+  position: relative;
+  width: 100%; flex: 1;
+  overflow: hidden;
+  background: #000;
+}
+
+#videoEl {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  object-fit: cover;
+}
+
+/* AR overlay canvas — drawn ON TOP of video in real-time */
+#arCanvas {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  pointer-events: none;
+}
+
+/* Guide overlay */
+#guideCanvas {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  pointer-events: none;
+}
+
+.cam-hud {
+  position: absolute; top: 0; left: 0; right: 0;
+  padding: calc(var(--safe-top) + 12px) 16px 12px;
+  display: flex; align-items: center; gap: 12px;
+  background: linear-gradient(rgba(0,0,0,.55), transparent);
+  z-index: 10;
+}
+.cam-back {
+  width: 40px; height: 40px;
+  display: flex; align-items: center; justify-content: center;
+  color: #fff; font-size: 1.2rem;
+  background: rgba(0,0,0,.4);
+  border-radius: 50%;
+}
+.cam-title {
+  flex: 1;
+  font-family: var(--ff-serif);
+  font-size: 1.2rem; color: #fff;
+  letter-spacing: .06em;
+}
+.cam-ai-badge {
+  padding: 5px 10px;
+  border-radius: 12px;
+  font-size: .68rem; letter-spacing: .04em;
+  background: rgba(0,0,0,.5);
+  color: rgba(255,255,255,.7);
+  border: 1px solid rgba(255,255,255,.15);
+  transition: all .3s;
+}
+.cam-ai-badge.ready {
+  background: rgba(39,174,96,.2);
+  color: #6fd99e;
+  border-color: rgba(39,174,96,.3);
+}
+.cam-ai-badge.loading {
+  color: rgba(200,165,106,.9);
+  border-color: rgba(200,165,106,.3);
+}
+
+.cam-controls {
+  position: absolute; bottom: 0; left: 0; right: 0;
+  padding: 16px 24px calc(var(--safe-bottom) + 24px);
+  background: linear-gradient(transparent, rgba(0,0,0,.7));
+  z-index: 10;
+}
+
+.cam-hint {
+  text-align: center;
+  font-size: .75rem; color: rgba(255,255,255,.6);
+  margin-bottom: 16px;
+  letter-spacing: .04em;
+}
+
+.cam-btn-row {
+  display: flex; align-items: center; justify-content: space-between;
+}
+
+.cam-side-btn {
+  width: 50px; height: 50px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(255,255,255,.15);
+  color: #fff;
+  font-size: 1.1rem;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.cam-snap {
+  width: 72px; height: 72px;
+  border-radius: 50%;
+  background: #fff;
+  border: 4px solid rgba(255,255,255,.3);
+  display: flex; align-items: center; justify-content: center;
+  transition: transform .1s;
+  box-shadow: 0 0 0 2px rgba(200,165,106,.5);
+}
+.cam-snap:active { transform: scale(.9); }
+.cam-snap-inner {
+  width: 56px; height: 56px;
+  border-radius: 50%;
+  background: var(--gold-lt);
+}
+
+/* Freeze confirm overlay */
+.freeze-overlay {
+  position: absolute; inset: 0;
+  background: rgba(0,0,0,.5);
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: flex-end;
+  padding-bottom: calc(var(--safe-bottom) + 32px);
+  z-index: 20;
+  opacity: 0; pointer-events: none;
+  transition: opacity .25s;
+}
+.freeze-overlay.show {
+  opacity: 1; pointer-events: auto;
+}
+.freeze-btns {
+  display: flex; gap: 12px;
+  width: 100%; max-width: 320px;
+  padding: 0 20px;
+}
+.freeze-ok {
+  flex: 1; padding: 16px;
+  background: var(--gold);
+  color: var(--ink);
+  border-radius: 12px;
+  font-size: .95rem; font-weight: 500;
+  letter-spacing: .04em;
+}
+.freeze-redo {
+  flex: 1; padding: 16px;
+  background: rgba(255,255,255,.15);
+  color: #fff;
+  border-radius: 12px;
+  font-size: .95rem;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+.freeze-label {
+  font-size: .8rem; color: rgba(255,255,255,.7);
+  margin-bottom: 14px; text-align: center;
+}
+
+/* Phase indicator (two-hand mode) */
+.phase-indicator {
+  display: flex; gap: 8px; justify-content: center;
+  margin-bottom: 10px;
+}
+.phase-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: rgba(255,255,255,.25);
+  transition: background .3s;
+}
+.phase-dot.active { background: var(--gold); }
+.phase-dot.done { background: rgba(200,165,106,.5); }
+
+/* ═══════════════════════════════════════════
+   SCREEN 3 — PREVIEW / RESULT
+═══════════════════════════════════════════ */
+#screenResult {
+  background: var(--smoke);
+  color: var(--ink);
+}
+
+.result-scroll {
+  flex: 1; overflow-y: auto;
+  display: flex; flex-direction: column;
+}
+
+.canvas-wrap {
+  position: relative;
+  background: var(--ink2);
+}
+.canvas-wrap canvas {
+  display: block; width: 100%;
+  height: auto;
+}
+
+.result-toolbar {
+  display: flex; align-items: center;
+  padding: 12px 16px;
+  background: var(--white);
+  border-bottom: 1px solid var(--smoke2);
+  gap: 8px;
+  flex-shrink: 0;
+}
+.rtb-btn {
+  flex: 1; padding: 10px 8px;
+  border-radius: 8px;
+  font-size: .75rem; color: var(--ink);
+  background: var(--smoke);
+  text-align: center;
+  transition: background .15s;
+}
+.rtb-btn:active { background: var(--smoke2); }
+.rtb-btn.primary {
+  background: var(--gold);
+  color: var(--ink);
+  font-weight: 500;
+}
+
+/* Adjust panel */
+.adjust-panel {
+  padding: 16px;
+  background: var(--white);
+  border-top: 1px solid var(--smoke2);
+}
+.adjust-title {
+  font-size: .72rem; color: var(--dust);
+  letter-spacing: .08em; text-transform: uppercase;
+  margin-bottom: 12px;
+}
+.adjust-row {
+  display: flex; align-items: center; gap: 12px;
+  margin-bottom: 10px;
+}
+.adjust-row:last-child { margin-bottom: 0; }
+.adjust-lbl {
+  font-size: .72rem; color: var(--ink3);
+  width: 44px; flex-shrink: 0;
+}
+.adjust-val {
+  font-size: .72rem; color: var(--gold-dk);
+  width: 36px; text-align: right; flex-shrink: 0;
+}
+input[type=range] {
+  flex: 1; height: 3px;
+  -webkit-appearance: none;
+  background: var(--smoke2);
+  border-radius: 2px;
+  outline: none;
+}
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 20px; height: 20px;
+  border-radius: 50%;
+  background: var(--ink);
+  cursor: pointer;
+  box-shadow: 0 1px 4px rgba(0,0,0,.2);
+}
+
+/* Shape selector */
+.shape-row {
+  display: flex; gap: 8px; flex-wrap: wrap;
+  margin-top: 14px;
+}
+.shape-btn {
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: .72rem;
+  background: var(--smoke);
+  color: var(--dust);
+  border: 1px solid transparent;
+  transition: all .15s;
+}
+.shape-btn.active {
+  background: var(--ink);
+  color: var(--gold-lt);
+  border-color: var(--ink);
+}
+
+/* Design info bar */
+.design-info-bar {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 16px;
+  background: var(--white);
+  border-top: 1px solid var(--smoke2);
+}
+.dib-thumb {
+  width: 44px; height: 44px;
+  border-radius: 6px; object-fit: cover;
+}
+.dib-body { flex: 1; min-width: 0; }
+.dib-name { font-size: .9rem; font-weight: 500; }
+.dib-meta { font-size: .72rem; color: var(--dust); margin-top: 2px; }
+.dib-change {
+  font-size: .75rem; color: var(--gold-dk);
+  padding: 8px 12px;
+  border: 1px solid var(--smoke2);
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+
+/* Preview tabs (individual mode) */
+.preview-tabs {
+  display: flex; background: var(--white);
+  border-bottom: 1px solid var(--smoke2);
+  flex-shrink: 0;
+}
+.ptab {
+  flex: 1; padding: 12px;
+  font-size: .78rem; color: var(--dust);
+  text-align: center;
+  border-bottom: 2px solid transparent;
+  transition: all .15s;
+}
+.ptab.active {
+  color: var(--ink);
+  border-bottom-color: var(--ink);
+}
+
+/* ═══════════════════════════════════════════
+   DESIGN DETAIL MODAL
+═══════════════════════════════════════════ */
+.modal-backdrop {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.6);
+  z-index: 200;
+  display: flex; align-items: flex-end;
+  opacity: 0; pointer-events: none;
+  transition: opacity .25s;
+}
+.modal-backdrop.show {
+  opacity: 1; pointer-events: auto;
+}
+.modal-sheet {
+  width: 100%;
+  background: var(--white);
+  border-radius: 20px 20px 0 0;
+  padding: 8px 0 calc(var(--safe-bottom) + 8px);
+  transform: translateY(20px);
+  transition: transform .25s;
+  max-height: 88vh;
+  overflow-y: auto;
+}
+.modal-backdrop.show .modal-sheet {
+  transform: translateY(0);
+}
+.modal-handle {
+  width: 36px; height: 4px;
+  background: var(--smoke2);
+  border-radius: 2px;
+  margin: 0 auto 16px;
+}
+.modal-img {
+  width: calc(100% - 32px);
+  max-height: 260px;
+  object-fit: cover;
+  border-radius: 12px;
+  margin: 0 16px 16px;
+}
+.modal-body { padding: 0 16px 16px; }
+.modal-cat {
+  font-size: .68rem; letter-spacing: .1em;
+  color: var(--dust); text-transform: uppercase;
+  margin-bottom: 4px;
+}
+.modal-name {
+  font-family: var(--ff-serif);
+  font-size: 1.6rem; font-weight: 400;
+  color: var(--ink); margin-bottom: 6px;
+}
+.modal-desc { font-size: .82rem; color: var(--dust); line-height: 1.6; }
+.modal-price {
+  font-size: 1.1rem; font-weight: 500;
+  color: var(--ink); margin-top: 10px;
+}
+.modal-apply {
+  display: flex; flex-direction: column; gap: 10px;
+  padding: 0 16px;
+}
+.modal-btn-primary {
+  width: 100%; padding: 16px;
+  background: var(--ink);
+  color: var(--gold-lt);
+  border-radius: 12px;
+  font-family: var(--ff-serif);
+  font-size: 1.1rem; font-weight: 400;
+  letter-spacing: .06em;
+}
+.modal-btn-secondary {
+  width: 100%; padding: 13px;
+  background: var(--smoke);
+  color: var(--ink);
+  border-radius: 12px;
+  font-size: .85rem;
+  border: 1px solid var(--smoke2);
+}
+
+/* ═══════════════════════════════════════════
+   ADMIN SCREEN
+═══════════════════════════════════════════ */
+#screenAdmin {
+  background: var(--smoke);
+  color: var(--ink);
+  overflow-y: auto;
+}
+
+.admin-content {
+  padding: calc(var(--safe-top) + 60px) 16px calc(var(--safe-bottom) + 32px);
+  max-width: 480px; margin: 0 auto;
+}
+.admin-section {
+  background: var(--white);
+  border-radius: 12px;
+  margin-bottom: 16px;
+  overflow: hidden;
+}
+.admin-section-title {
+  padding: 14px 16px;
+  font-size: .72rem; letter-spacing: .1em;
+  color: var(--dust); text-transform: uppercase;
+  border-bottom: 1px solid var(--smoke2);
+}
+.admin-form { padding: 16px; }
+.admin-field { margin-bottom: 12px; }
+.admin-label {
+  font-size: .72rem; color: var(--dust);
+  display: block; margin-bottom: 5px;
+  letter-spacing: .04em;
+}
+.admin-input {
+  width: 100%; padding: 10px 12px;
+  background: var(--smoke);
+  border: 1px solid var(--smoke2);
+  border-radius: 8px;
+  font-size: .9rem; color: var(--ink);
+  outline: none;
+}
+.admin-input:focus { border-color: var(--gold); }
+.admin-select {
+  width: 100%; padding: 10px 12px;
+  background: var(--smoke);
+  border: 1px solid var(--smoke2);
+  border-radius: 8px;
+  font-size: .9rem; color: var(--ink);
+  outline: none;
+  -webkit-appearance: none;
+}
+.admin-upload-area {
+  width: 100%; aspect-ratio: 3/4;
+  border: 2px dashed var(--smoke2);
+  border-radius: 10px;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  cursor: pointer; position: relative;
+  overflow: hidden;
+  transition: border-color .2s;
+}
+.admin-upload-area:active { border-color: var(--gold); }
+.admin-upload-area img {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%; object-fit: cover;
+}
+.admin-upload-placeholder {
+  font-size: .8rem; color: var(--dust);
+  text-align: center; line-height: 1.6;
+}
+.admin-btn {
+  width: 100%; padding: 14px;
+  background: var(--ink);
+  color: var(--gold-lt);
+  border-radius: 10px;
+  font-family: var(--ff-serif);
+  font-size: 1.05rem;
+  margin-top: 4px;
+}
+.admin-list { padding: 8px 0; }
+.admin-item {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--smoke2);
+}
+.admin-item:last-child { border-bottom: none; }
+.admin-item-thumb {
+  width: 44px; height: 44px;
+  border-radius: 6px; object-fit: cover;
+  background: var(--smoke2);
+  flex-shrink: 0;
+}
+.admin-item-info { flex: 1; min-width: 0; }
+.admin-item-name { font-size: .88rem; font-weight: 500; }
+.admin-item-meta { font-size: .72rem; color: var(--dust); margin-top: 2px; }
+.admin-item-del {
+  color: var(--dust);
+  font-size: 1rem; padding: 8px;
+}
+.admin-item-del:active { color: var(--red); }
+
+/* ═══════════════════════════════════════════
+   TOAST
+═══════════════════════════════════════════ */
+.toast-wrap {
+  position: fixed;
+  bottom: calc(var(--safe-bottom) + 100px);
+  left: 50%; transform: translateX(-50%);
+  z-index: 9999;
+  pointer-events: none;
+  display: flex; flex-direction: column;
+  align-items: center; gap: 8px;
+}
+.toast {
+  padding: 10px 18px;
+  background: rgba(14,12,10,.92);
+  color: #fff;
+  border-radius: 20px;
+  font-size: .82rem;
+  white-space: nowrap;
+  max-width: 280px; overflow: hidden; text-overflow: ellipsis;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  animation: toastIn .2s ease;
+}
+@keyframes toastIn {
+  from { opacity: 0; transform: translateY(6px) scale(.96); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* ═══════════════════════════════════════════
+   PIN MODAL (admin)
+═══════════════════════════════════════════ */
+.pin-modal {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.7);
+  z-index: 300;
+  display: flex; align-items: center; justify-content: center;
+  padding: 24px;
+  opacity: 0; pointer-events: none;
+  transition: opacity .2s;
+}
+.pin-modal.show { opacity: 1; pointer-events: auto; }
+.pin-card {
+  width: 100%; max-width: 280px;
+  background: var(--white);
+  border-radius: 16px;
+  padding: 28px 20px;
+  text-align: center;
+}
+.pin-title {
+  font-family: var(--ff-serif);
+  font-size: 1.4rem; margin-bottom: 6px;
+  color: var(--ink);
+}
+.pin-sub { font-size: .78rem; color: var(--dust); margin-bottom: 20px; }
+.pin-input {
+  width: 100%; padding: 12px 16px;
+  border: 1.5px solid var(--smoke2);
+  border-radius: 8px;
+  font-size: 1.2rem;
+  text-align: center; letter-spacing: .3em;
+  color: var(--ink);
+  outline: none; margin-bottom: 12px;
+}
+.pin-input:focus { border-color: var(--gold); }
+.pin-submit {
+  width: 100%; padding: 13px;
+  background: var(--ink);
+  color: var(--gold-lt);
+  border-radius: 8px;
+  font-size: .95rem;
+}
+.pin-cancel {
+  width: 100%; padding: 10px;
+  color: var(--dust); font-size: .85rem;
+  margin-top: 6px;
+}
+.pin-err {
+  font-size: .78rem; color: var(--red);
+  margin-top: -6px; margin-bottom: 8px;
+  min-height: 16px;
+}
+
+/* ═══════════════════════════════════════════
+   UTILS
+═══════════════════════════════════════════ */
+.hidden { display: none !important; }
+.spin { animation: spin .8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.divider-line {
+  border: none;
+  border-top: 1px solid var(--smoke2);
+  margin: 0;
+}
+
+/* Flash effect */
+.flash-el {
+  position: fixed; inset: 0;
+  background: #fff;
+  z-index: 9990;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity .18s;
+}
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════
+     SCREEN 0 — MODE SELECT
+═══════════════════════════════════════════ -->
+<div id="screenMode" class="screen active">
+  <button class="admin-trigger" id="adminTrigger">🔒</button>
+  <div class="logo-wrap">
+    <div class="logo-diamond"></div>
+    <div class="logo-name">Syoni Lab</div>
+    <div class="logo-sub">Virtual Nail Try-On</div>
+  </div>
+  <div class="mode-cards">
+    <button class="mode-card" id="btnModeUniform">
+      <div class="mode-icon">💅</div>
+      <div class="mode-title">Uniform</div>
+      <div class="mode-desc">하나의 디자인을 10개 손톱 전체에 적용합니다</div>
+    </button>
+    <button class="mode-card" id="btnModeIndividual">
+      <div class="mode-icon">🖐️</div>
+      <div class="mode-title">Individual</div>
+      <div class="mode-desc">손톱마다 각기 다른 디자인을 선택합니다</div>
+    </button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     SCREEN 1 — DESIGN SELECT
+═══════════════════════════════════════════ -->
+<div id="screenDesign" class="screen">
+  <div class="topbar">
+    <button class="topbar-back" id="designBack">←</button>
+    <div class="topbar-title" id="designTopTitle">디자인 선택</div>
+    <button class="topbar-action hidden" id="btnToCamera">촬영 →</button>
+  </div>
+
+  <!-- slot bar (individual) -->
+  <div class="slot-bar hidden" id="slotBar">
+    <div class="slot-row" id="slotRow"></div>
+    <div class="slot-label" id="slotLabel">왼손 새끼손톱부터 선택해 주세요</div>
+  </div>
+
+  <!-- cat filter -->
+  <div class="cat-bar">
+    <button class="cat-btn active" data-cat="all">전체</button>
+    <button class="cat-btn" data-cat="design">디자인</button>
+    <button class="cat-btn" data-cat="tip">네일팁</button>
+    <button class="cat-btn" data-cat="french">프렌치</button>
+    <button class="cat-btn" data-cat="gel">젤아트</button>
+    <button class="cat-btn" data-cat="ombre">옴브레</button>
+  </div>
+
+  <!-- selected bar (uniform) -->
+  <div class="selected-bar hidden" id="selectedBar">
+    <img class="sb-thumb" id="sbThumb" src="" alt=""/>
+    <div class="sb-info">
+      <div class="sb-name" id="sbName"></div>
+      <div class="sb-meta" id="sbMeta"></div>
+    </div>
+    <button class="sb-next" id="btnGoCamera">촬영하기 →</button>
+  </div>
+
+  <div class="design-scroll">
+    <div class="design-grid" id="designGrid">
+      <div class="d-loading" id="designLoading">
+        <span class="spin">◌</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     SCREEN 2 — CAMERA / LIVE AR
+═══════════════════════════════════════════ -->
+<div id="screenCamera" class="screen">
+  <div class="cam-wrap">
+    <video id="videoEl" autoplay playsinline webkit-playsinline muted></video>
+    <!-- Real-time AR overlay -->
+    <canvas id="arCanvas"></canvas>
+    <!-- Guide overlay -->
+    <canvas id="guideCanvas"></canvas>
+
+    <!-- HUD top -->
+    <div class="cam-hud">
+      <button class="cam-back" id="camBack">←</button>
+      <div class="cam-title" id="camTitle">손 촬영</div>
+      <div class="cam-ai-badge loading" id="aiBadge">AI 로딩 중</div>
+    </div>
+
+    <!-- Phase indicator (individual mode) -->
+    <div class="phase-indicator" id="phaseIndicator" style="position:absolute;top:calc(var(--safe-top)+60px);left:50%;transform:translateX(-50%);z-index:10;">
+      <div class="phase-dot" id="phaseL"></div>
+      <div class="phase-dot" id="phaseR"></div>
+    </div>
+
+    <!-- Freeze confirm overlay -->
+    <div class="freeze-overlay" id="freezeOverlay">
+      <div class="freeze-label" id="freezeLabel">이 상태로 적용할까요?</div>
+      <div class="freeze-btns">
+        <button class="freeze-redo" id="btnFreezeRedo">다시 촬영</button>
+        <button class="freeze-ok" id="btnFreezeOk">적용</button>
+      </div>
+    </div>
+
+    <!-- Controls bottom -->
+    <div class="cam-controls">
+      <div class="cam-hint" id="camHint">손등이 위로 · 손가락을 가지런히 펴 주세요</div>
+      <div class="cam-btn-row">
+        <button class="cam-side-btn" id="btnCamUpload">🖼</button>
+        <button class="cam-snap" id="btnSnap">
+          <div class="cam-snap-inner"></div>
+        </button>
+        <button class="cam-side-btn" id="btnCamFlip">🔄</button>
+      </div>
+    </div>
+  </div>
+  <input type="file" id="fileInput" accept="image/*" style="display:none"/>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     SCREEN 3 — RESULT / PREVIEW
+═══════════════════════════════════════════ -->
+<div id="screenResult" class="screen">
+  <div class="topbar">
+    <button class="topbar-back" id="resultBack">←</button>
+    <div class="topbar-title">Virtual Try-On</div>
+    <button class="topbar-action" id="btnRedo">재촬영</button>
+  </div>
+
+  <div class="result-scroll">
+    <!-- Preview tabs (individual) -->
+    <div class="preview-tabs hidden" id="previewTabs">
+      <button class="ptab active" data-view="left">왼손</button>
+      <button class="ptab" data-view="right">오른손</button>
+      <button class="ptab" data-view="both">양손</button>
+    </div>
+
+    <!-- Canvas area -->
+    <div class="canvas-wrap" id="canvasWrap">
+      <!-- Uniform -->
+      <canvas id="previewCanvas" class="hidden"></canvas>
+      <!-- Individual -->
+      <div id="dualWrap" class="hidden" style="display:flex;gap:2px;">
+        <canvas id="previewCanvasL" style="flex:1;width:50%;"></canvas>
+        <canvas id="previewCanvasR" style="flex:1;width:50%;"></canvas>
+      </div>
+    </div>
+
+    <!-- Toolbar -->
+    <div class="result-toolbar">
+      <button class="rtb-btn" id="btnChangeDesign">디자인 변경</button>
+      <button class="rtb-btn primary" id="btnSave">저장</button>
+      <button class="rtb-btn primary" id="btnShare">공유</button>
+    </div>
+
+    <!-- Design info -->
+    <div class="design-info-bar" id="designInfoBar" style="display:none;">
+      <img class="dib-thumb" id="dibThumb" src="" alt=""/>
+      <div class="dib-body">
+        <div class="dib-name" id="dibName"></div>
+        <div class="dib-meta" id="dibMeta"></div>
+      </div>
+    </div>
+
+    <hr class="divider-line"/>
+
+    <!-- Adjust -->
+    <div class="adjust-panel">
+      <div class="adjust-title">조정</div>
+      <div class="adjust-row">
+        <span class="adjust-lbl">크기</span>
+        <input type="range" id="slScale" min="60" max="150" value="100"/>
+        <span class="adjust-val" id="valScale">100%</span>
+      </div>
+      <div class="adjust-row">
+        <span class="adjust-lbl">위치</span>
+        <input type="range" id="slOffsetY" min="-5" max="5" value="0"/>
+        <span class="adjust-val" id="valOffsetY">0</span>
+      </div>
+      <div class="adjust-row">
+        <span class="adjust-lbl">투명도</span>
+        <input type="range" id="slOpacity" min="50" max="100" value="92"/>
+        <span class="adjust-val" id="valOpacity">92%</span>
+      </div>
+      <div class="shape-row">
+        <button class="shape-btn active" data-shape="round">라운드</button>
+        <button class="shape-btn" data-shape="square">스퀘어</button>
+        <button class="shape-btn" data-shape="almond">아몬드</button>
+        <button class="shape-btn" data-shape="coffin">코핀</button>
+        <button class="shape-btn" data-shape="stiletto">스틸레토</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     SCREEN 4 — ADMIN
+═══════════════════════════════════════════ -->
+<div id="screenAdmin" class="screen">
+  <div class="topbar" style="position:sticky;top:0;z-index:10;background:var(--white);">
+    <button class="topbar-back" id="adminBack">←</button>
+    <div class="topbar-title">관리자</div>
+  </div>
+  <div class="admin-content">
+    <!-- Upload form -->
+    <div class="admin-section">
+      <div class="admin-section-title">디자인 추가</div>
+      <div class="admin-form">
+        <div class="admin-field">
+          <label class="admin-label">이미지</label>
+          <div class="admin-upload-area" id="adminUploadArea">
+            <div class="admin-upload-placeholder">＋<br/>탭하여 이미지 선택</div>
+            <img id="adminPreviewImg" style="display:none;" alt=""/>
+          </div>
+          <input type="file" id="adminFileInput" accept="image/*" style="display:none"/>
+        </div>
+        <div class="admin-field">
+          <label class="admin-label">이름</label>
+          <input class="admin-input" id="adminName" placeholder="예: 로즈골드 라운드"/>
+        </div>
+        <div class="admin-field">
+          <label class="admin-label">카테고리</label>
+          <select class="admin-select" id="adminCat">
+            <option value="design">디자인</option>
+            <option value="tip">네일팁</option>
+            <option value="french">프렌치</option>
+            <option value="gel">젤아트</option>
+            <option value="ombre">옴브레</option>
+          </select>
+        </div>
+        <div class="admin-field">
+          <label class="admin-label">가격 (선택)</label>
+          <input class="admin-input" id="adminPrice" placeholder="예: 50000" type="number"/>
+        </div>
+        <div class="admin-field">
+          <label class="admin-label">설명 (선택)</label>
+          <input class="admin-input" id="adminDesc" placeholder="간단한 설명"/>
+        </div>
+        <button class="admin-btn" id="adminSaveBtn">저장하기</button>
+      </div>
+    </div>
+
+    <!-- Design list -->
+    <div class="admin-section">
+      <div class="admin-section-title">등록된 디자인 (<span id="adminCount">0</span>)</div>
+      <div class="admin-list" id="adminList"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     MODALS & OVERLAYS
+═══════════════════════════════════════════ -->
+<!-- Design detail modal -->
+<div class="modal-backdrop" id="designModal">
+  <div class="modal-sheet" id="modalSheet">
+    <div class="modal-handle"></div>
+    <img class="modal-img" id="modalImg" src="" alt=""/>
+    <div class="modal-body">
+      <div class="modal-cat" id="modalCat"></div>
+      <div class="modal-name" id="modalName"></div>
+      <div class="modal-desc" id="modalDesc"></div>
+      <div class="modal-price" id="modalPrice"></div>
+    </div>
+    <div class="modal-apply">
+      <button class="modal-btn-primary" id="modalApplyBtn">이 디자인 적용하기</button>
+      <button class="modal-btn-secondary" id="modalCancelBtn">취소</button>
+    </div>
+  </div>
+</div>
+
+<!-- PIN modal -->
+<div class="pin-modal" id="pinModal">
+  <div class="pin-card">
+    <div class="pin-title">관리자 인증</div>
+    <div class="pin-sub">PIN 번호를 입력하세요</div>
+    <input class="pin-input" id="pinInput" type="password" maxlength="20" placeholder="••••"/>
+    <div class="pin-err" id="pinErr"></div>
+    <button class="pin-submit" id="pinSubmit">확인</button>
+    <button class="pin-cancel" id="pinCancel">취소</button>
+  </div>
+</div>
+
+<!-- Toast container -->
+<div class="toast-wrap" id="toastWrap"></div>
+
+<!-- Hidden snap canvas -->
+<canvas id="snapCanvas" style="display:none;"></canvas>
+
+<!-- ═══════════════════════════════════════════
+     MEDIAPIPE TASKS VISION — WASM
+═══════════════════════════════════════════ -->
+<script>
+// ══════════════════════════════════════════════════════════════════
+//  SYONI LAB v10 — 완전 재구현
+//  Architecture:
+//  1. MediaPipe Tasks Vision (WASM) — 최신 안정 버전, 단일 CDN
+//  2. 실시간 AR 스트림 — requestAnimationFrame 루프
+//  3. IndexedDB — 오프라인 디자인 저장
+//  4. 각도 보정 완전 수정 — 아이폰 후면 카메라 기준
+// ══════════════════════════════════════════════════════════════════
+'use strict';
+
+/* ────────────────────────────────────────────
+   GLOBALS
+──────────────────────────────────────────── */
+const $ = id => document.getElementById(id);
+const $$ = sel => document.querySelectorAll(sel);
+
+let appMode       = 'uniform';    // 'uniform' | 'individual'
+let capturePhase  = 'uniform';    // 'uniform' | 'left' | 'right'
+let currentScreen = 'screenMode';
+let currentCat    = 'all';
+let currentShape  = 'round';
+
+let uniformDesign  = null;
+const SLOT_COUNT   = 10;
+let individualSlots = new Array(SLOT_COUNT).fill(null);
+let currentSlot    = 0;
+
+// Camera
+let camStream   = null;
+let facingMode  = 'environment';
+let arLoopId    = null;
+
+// MediaPipe
+let mpHandLandmarker = null;
+let mpReady          = false;
+let mpLoading        = false;
+
+// AR state
+let arFrozen         = false;
+let frozenZones      = null;
+let arDesignImgs     = []; // loaded Image objects, [0..4]
+let arDesignImgsR    = []; // right hand
+
+// Captured data for result
+let cachedSnap = null;  // uniform
+let cachedSnapL = null; // individual left
+let cachedSnapR = null; // individual right
+let cachedZonesL = null;
+let cachedZonesR = null;
+
+// Overlay config
+let overlayCfg = { scale: 1.0, offsetY: 0, opacity: 0.92 };
+
+// Admin
+let adminPinHash = null;
+const DEFAULT_PIN = 'syoni2024';
+let adminImageDataURL = null;
+let designs = [];
+
+/* ────────────────────────────────────────────
+   DB — IndexedDB wrapper
+──────────────────────────────────────────── */
+const DB = (() => {
+  let db = null;
+  const NAME = 'syoni_db'; const VER = 2;
+  const STORE = 'designs';
+
+  async function open() {
+    if (db) return db;
+    return new Promise((res, rej) => {
+      const req = indexedDB.open(NAME, VER);
+      req.onupgradeneeded = e => {
+        const d = e.target.result;
+        if (!d.objectStoreNames.contains(STORE)) {
+          d.createObjectStore(STORE, { keyPath: 'id', autoIncrement: true });
+        }
+      };
+      req.onsuccess = e => { db = e.target.result; res(db); };
+      req.onerror   = () => rej(req.error);
+    });
+  }
+
+  async function list() {
+    const d = await open();
+    return new Promise((res, rej) => {
+      const tx = d.transaction(STORE, 'readonly');
+      const req = tx.objectStore(STORE).getAll();
+      req.onsuccess = () => res(req.result || []);
+      req.onerror   = () => rej(req.error);
+    });
+  }
+
+  async function add(item) {
+    const d = await open();
+    return new Promise((res, rej) => {
+      const tx  = d.transaction(STORE, 'readwrite');
+      const req = tx.objectStore(STORE).add({ ...item, created_at: Date.now() });
+      req.onsuccess = () => res(req.result);
+      req.onerror   = () => rej(req.error);
+    });
+  }
+
+  async function remove(id) {
+    const d = await open();
+    return new Promise((res, rej) => {
+      const tx  = d.transaction(STORE, 'readwrite');
+      const req = tx.objectStore(STORE).delete(id);
+      req.onsuccess = () => res();
+      req.onerror   = () => rej(req.error);
+    });
+  }
+
+  return { list, add, remove };
+})();
+
+/* ────────────────────────────────────────────
+   MEDIAPIPE — Hand Landmarker (Tasks Vision)
+──────────────────────────────────────────── */
+async function loadMediaPipe() {
+  if (mpReady || mpLoading) return;
+  mpLoading = true;
+  updateAIBadge('loading');
+
+  try {
+    // MediaPipe Tasks Vision — WASM via CDN
+    const VISION_URL = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs';
+    const vision = await import(VISION_URL);
+    const { HandLandmarker, FilesetResolver } = vision;
+
+    const filesetResolver = await FilesetResolver.forVisionTasks(
+      'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm'
+    );
+
+    mpHandLandmarker = await HandLandmarker.createFromOptions(filesetResolver, {
+      baseOptions: {
+        modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task',
+        delegate: 'GPU',
+      },
+      runningMode:         'VIDEO',
+      numHands:            2,
+      minHandDetectionConfidence: 0.5,
+      minHandPresenceConfidence:  0.5,
+      minTrackingConfidence:      0.5,
+    });
+
+    mpReady   = true;
+    mpLoading = false;
+    updateAIBadge('ready');
+    console.log('[MP] HandLandmarker 준비 완료');
+  } catch(e) {
+    mpLoading = false;
+    console.warn('[MP] 로드 실패:', e.message);
+    // Fallback: try older handpose approach
+    await loadMediaPipeFallback();
+  }
+}
+
+async function loadMediaPipeFallback() {
+  // Fallback to @mediapipe/hands 0.4
+  try {
+    await loadScript('https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1646424915/hands.min.js', 15000);
+    if (!window.Hands) throw new Error('Hands not found');
+
+    const hands = new window.Hands({
+      locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1646424915/${f}`
+    });
+    hands.setOptions({ maxNumHands: 2, modelComplexity: 1, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 });
+
+    // Wrap in Tasks-compatible interface
+    mpHandLandmarker = { _mpHands: hands, _type: 'legacy' };
+    mpReady   = true;
+    updateAIBadge('ready');
+    console.log('[MP] Legacy Hands 준비 완료 (fallback)');
+  } catch(e2) {
+    console.warn('[MP] Legacy 폴백도 실패:', e2.message);
+    updateAIBadge('none');
+  }
+}
+
+function updateAIBadge(state) {
+  const b = $('aiBadge');
+  if (!b) return;
+  b.className = 'cam-ai-badge';
+  if (state === 'ready') {
+    b.classList.add('ready');
+    b.textContent = 'AI 준비 완료';
+  } else if (state === 'loading') {
+    b.classList.add('loading');
+    b.textContent = 'AI 로딩 중';
+  } else {
+    b.textContent = '자동 합성';
+  }
+}
+
+function loadScript(src, timeout = 15000) {
+  return new Promise((res, rej) => {
+    if (document.querySelector(`script[src="${src}"]`)) { res(); return; }
+    const t = setTimeout(() => rej(new Error('timeout: ' + src)), timeout);
+    const s = document.createElement('script');
+    s.src = src; s.async = true;
+    s.onload  = () => { clearTimeout(t); res(); };
+    s.onerror = () => { clearTimeout(t); rej(new Error('load failed: ' + src)); };
+    document.head.appendChild(s);
+  });
+}
+
+/* ────────────────────────────────────────────
+   FINGER PARAMS (fine-tuned for iPhone rear)
+──────────────────────────────────────────── */
+const FINGER_ORDER = ['thumb', 'index', 'middle', 'ring', 'pinky'];
+
+// MediaPipe hand landmark indices
+const NAIL_LM = {
+  thumb:  { tip: 4,  dip: 3,  pip: 2 },
+  index:  { tip: 8,  dip: 7,  pip: 6 },
+  middle: { tip: 12, dip: 11, pip: 10 },
+  ring:   { tip: 16, dip: 15, pip: 14 },
+  pinky:  { tip: 20, dip: 19, pip: 18 },
+};
+
+// Nail dimension params per finger
+const FINGER_PARAMS = {
+  thumb:  { wRatio: 0.92, hRatio: 0.62, dipBlend: 0.35 },
+  index:  { wRatio: 0.84, hRatio: 0.60, dipBlend: 0.30 },
+  middle: { wRatio: 0.82, hRatio: 0.58, dipBlend: 0.28 },
+  ring:   { wRatio: 0.78, hRatio: 0.56, dipBlend: 0.28 },
+  pinky:  { wRatio: 0.72, hRatio: 0.54, dipBlend: 0.25 },
+};
+
+// Fallback template zones (normalized, rear camera, left hand facing camera)
+const GUIDE_ZONES_REAR = [
+  { finger: 'thumb',  x: 0.16, y: 0.56, rx: 0.072, ry: 0.090, angleDeg: -32 },
+  { finger: 'index',  x: 0.32, y: 0.28, rx: 0.065, ry: 0.105, angleDeg:  -7 },
+  { finger: 'middle', x: 0.48, y: 0.20, rx: 0.065, ry: 0.112, angleDeg:   0 },
+  { finger: 'ring',   x: 0.64, y: 0.27, rx: 0.060, ry: 0.102, angleDeg:   7 },
+  { finger: 'pinky',  x: 0.79, y: 0.37, rx: 0.052, ry: 0.085, angleDeg:  14 },
+];
+
+/* ────────────────────────────────────────────
+   LANDMARK → NAIL ZONES
+──────────────────────────────────────────── */
+function landmarksToZones(landmarkResult, videoW, videoH) {
+  if (!landmarkResult) return null;
+
+  // Normalize result format (Tasks Vision vs Legacy)
+  let handsData = [];
+
+  if (landmarkResult._type === 'legacy_result') {
+    // From legacy MP Hands callback
+    handsData = landmarkResult.hands;
+  } else {
+    // Tasks Vision format
+    const lms  = landmarkResult.landmarks || [];
+    const wlds = landmarkResult.worldLandmarks || [];
+    const hand = landmarkResult.handedness || [];
+    lms.forEach((lm, i) => {
+      handsData.push({
+        landmarks:  lm,
+        handedness: hand[i]?.[0]?.categoryName || 'Left',
+        isNorm:     true,
+      });
+    });
+  }
+
+  if (!handsData.length) return null;
+
+  const zones = [];
+
+  handsData.forEach(({ landmarks, handedness, isNorm }) => {
+    // MediaPipe handedness is mirrored for rear camera
+    // Tasks Vision 'Left' = physical right hand when rear camera
+    // We keep it as-is and handle mapping in overlay
+    const hand = handedness;
+
+    FINGER_ORDER.forEach(finger => {
+      const pts = NAIL_LM[finger];
+      const tip = landmarks[pts.tip];
+      const dip = landmarks[pts.dip];
+      const pip = landmarks[pts.pip];
+      if (!tip || !dip || !pip) return;
+
+      // Convert normalized → pixel
+      const toX = v => isNorm ? v.x * videoW : v.x;
+      const toY = v => isNorm ? v.y * videoH : v.y;
+
+      const tipX = toX(tip), tipY = toY(tip);
+      const dipX = toX(dip), dipY = toY(dip);
+      const pipX = toX(pip), pipY = toY(pip);
+
+      const fp = FINGER_PARAMS[finger];
+
+      // Distance TIP→DIP
+      const tipDip = Math.hypot(tipX - dipX, tipY - dipY);
+      const dipPip = Math.hypot(dipX - pipX, dipY - pipY);
+      if (tipDip < 4 || dipPip < 4) return;
+
+      // Nail center: weighted toward TIP
+      const blend = fp.dipBlend;
+      const cx = tipX * (1 - blend) + dipX * blend;
+      const cy = tipY * (1 - blend) + dipY * blend;
+
+      const h  = tipDip * fp.hRatio;
+      const w  = h * fp.wRatio;
+
+      // Angle: direction from DIP to TIP, then subtract 90° to get nail normal
+      // This gives the angle of the finger axis relative to vertical
+      const rawAngle = Math.atan2(tipY - dipY, tipX - dipX);
+      // The nail surface is perpendicular to finger axis
+      // finger pointing up = atan2 ≈ -π/2 → nail angle = 0
+      const angle = rawAngle + Math.PI / 2;
+
+      // Boundary check
+      const margin = Math.max(w, h) * 0.6;
+      if (cx < -margin || cx > videoW + margin) return;
+      if (cy < -margin || cy > videoH + margin) return;
+      if (w < 4 || h < 4) return;
+
+      zones.push({ finger, hand, cx, cy, w, h, angle, confidence: 0.9 });
+    });
+  });
+
+  return zones.length >= 2 ? zones : null;
+}
+
+/* ────────────────────────────────────────────
+   AR RENDER — draw nail overlays on canvas
+──────────────────────────────────────────── */
+// 5 nail shapes as Bézier clip paths
+const SHAPES = {
+  round: (hw, hh, ctx) => {
+    ctx.beginPath();
+    ctx.moveTo(-hw*.70, hh*.20);
+    ctx.bezierCurveTo(-hw*.70, -hh*.45, -hw*.45, -hh, 0, -hh);
+    ctx.bezierCurveTo( hw*.45, -hh,     hw*.70, -hh*.45, hw*.70, hh*.20);
+    ctx.lineTo(hw*.70, hh*.85);
+    ctx.quadraticCurveTo(0, hh*1.04, -hw*.70, hh*.85);
+    ctx.closePath();
+  },
+  square: (hw, hh, ctx) => {
+    const r = hw*.10;
+    ctx.beginPath();
+    ctx.moveTo(-hw*.74+r, hh*.88); ctx.lineTo(-hw*.74, hh*.88-r);
+    ctx.lineTo(-hw*.74, -hh*.86+r);
+    ctx.quadraticCurveTo(-hw*.74, -hh*.86, -hw*.74+r, -hh*.86);
+    ctx.lineTo( hw*.74-r, -hh*.86);
+    ctx.quadraticCurveTo( hw*.74, -hh*.86, hw*.74, -hh*.86+r);
+    ctx.lineTo( hw*.74, hh*.88-r); ctx.lineTo(hw*.74, hh*.88);
+    ctx.lineTo(-hw*.74+r, hh*.88);
+    ctx.closePath();
+  },
+  almond: (hw, hh, ctx) => {
+    ctx.beginPath();
+    ctx.moveTo(-hw*.68, hh*.24);
+    ctx.bezierCurveTo(-hw*.68, -hh*.22, -hw*.28, -hh*1.05, 0, -hh*1.12);
+    ctx.bezierCurveTo( hw*.28, -hh*1.05, hw*.68, -hh*.22, hw*.68, hh*.24);
+    ctx.lineTo(hw*.68, hh*.86);
+    ctx.quadraticCurveTo(0, hh*1.04, -hw*.68, hh*.86);
+    ctx.closePath();
+  },
+  coffin: (hw, hh, ctx) => {
+    ctx.beginPath();
+    ctx.moveTo(-hw*.72, hh*.88); ctx.lineTo(-hw*.72, -hh*.28);
+    ctx.bezierCurveTo(-hw*.72,-hh*.82,-hw*.36,-hh*.96,-hw*.20,-hh*.96);
+    ctx.lineTo(hw*.20,-hh*.96);
+    ctx.bezierCurveTo(hw*.36,-hh*.96,hw*.72,-hh*.82,hw*.72,-hh*.28);
+    ctx.lineTo(hw*.72, hh*.88); ctx.lineTo(-hw*.72, hh*.88);
+    ctx.closePath();
+  },
+  stiletto: (hw, hh, ctx) => {
+    ctx.beginPath();
+    ctx.moveTo(-hw*.72, hh*.86);
+    ctx.bezierCurveTo(-hw*.72, hh*.08, -hw*.32, -hh*.92, 0, -hh*1.30);
+    ctx.bezierCurveTo( hw*.32, -hh*.92, hw*.72, hh*.08, hw*.72, hh*.86);
+    ctx.quadraticCurveTo(0, hh*1.04, -hw*.72, hh*.86);
+    ctx.closePath();
+  },
+};
+
+function drawNailOverlay(ctx, zone, designImg, cfg) {
+  if (!designImg || !zone) return;
+  const { cx, cy, w, h, angle } = zone;
+  const nw = w * cfg.scale;
+  const nh = h * cfg.scale;
+  if (nw < 4 || nh < 4) return;
+
+  // offsetY: positive = toward TIP (up), negative = toward DIP (down)
+  // In canvas Y axis (down=+), TIP is at smaller Y when finger points up
+  const adjustedCy = cy - nh * cfg.offsetY * 0.08;
+
+  ctx.save();
+  ctx.translate(cx, adjustedCy);
+  ctx.rotate(angle);
+
+  const hw = nw / 2, hh = nh / 2;
+  const shapeFn = SHAPES[currentShape] || SHAPES.round;
+  shapeFn(hw, hh, ctx);
+  ctx.clip();
+
+  // Fit design (cover)
+  const iw = designImg.naturalWidth || designImg.width;
+  const ih = designImg.naturalHeight || designImg.height;
+  let dw, dh;
+  if (iw / ih > nw / nh) { dh = nh; dw = dh * (iw / ih); }
+  else                    { dw = nw; dh = dw * (ih / iw); }
+
+  ctx.globalAlpha = cfg.opacity;
+  ctx.drawImage(designImg, -dw/2, -dh/2, dw, dh);
+
+  // Gloss pass
+  ctx.globalCompositeOperation = 'screen';
+  ctx.globalAlpha = 0.22;
+  const grd = ctx.createRadialGradient(-hw*.18, -hh*.28, 0, -hw*.06, -hh*.15, nw*.52);
+  grd.addColorStop(0, 'rgba(255,255,255,0.92)');
+  grd.addColorStop(.30, 'rgba(255,255,255,0.28)');
+  grd.addColorStop(.65, 'rgba(255,255,255,0.06)');
+  grd.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = grd;
+  ctx.fillRect(-nw, -nh, nw*2, nh*2);
+
+  // Cuticle darkening
+  ctx.globalCompositeOperation = 'multiply';
+  ctx.globalAlpha = 0.26;
+  const cg = ctx.createLinearGradient(0, hh*.50, 0, nh);
+  cg.addColorStop(0, 'rgba(20,14,10,0)');
+  cg.addColorStop(1, 'rgba(20,14,10,0.85)');
+  ctx.fillStyle = cg;
+  ctx.fillRect(-nw, -nh, nw*2, nh*2);
+
+  ctx.restore();
+}
+
+function renderARFrame(canvas, videoEl, zones, designImgs) {
+  const W = videoEl.videoWidth;
+  const H = videoEl.videoHeight;
+  if (!W || !H) return;
+
+  if (canvas.width !== W || canvas.height !== H) {
+    canvas.width = W; canvas.height = H;
+  }
+
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, W, H);
+
+  if (!zones || !designImgs.length) return;
+
+  // Render order: pinky → ring → middle → index → thumb (thumb on top)
+  const ORDER = ['pinky', 'ring', 'middle', 'index', 'thumb'];
+  ORDER.forEach(finger => {
+    const fi = FINGER_ORDER.indexOf(finger);
+    const design = designImgs[fi];
+    if (!design) return;
+
+    const zone = zones.find(z => z.finger === finger);
+    if (!zone) return;
+
+    drawNailOverlay(ctx, zone, design, overlayCfg);
+  });
+}
+
+/* ────────────────────────────────────────────
+   SNAPSHOT → RESULT CANVAS
+──────────────────────────────────────────── */
+function renderToCanvas(canvas, snapDataURL, zones, designImgs) {
+  return new Promise(res => {
+    const img = new Image();
+    img.onload = () => {
+      const W = img.naturalWidth;
+      const H = img.naturalHeight;
+      canvas.width = W; canvas.height = H;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, W, H);
+
+      if (!zones || !designImgs.length) { res(); return; }
+
+      // Scale zones from video coords to snap coords
+      // (snap already taken from video at same resolution)
+      const ORDER = ['pinky', 'ring', 'middle', 'index', 'thumb'];
+      ORDER.forEach(finger => {
+        const fi = FINGER_ORDER.indexOf(finger);
+        const design = designImgs[fi];
+        if (!design) return;
+        const zone = zones.find(z => z.finger === finger);
+        if (!zone) return;
+        drawNailOverlay(ctx, zone, design, overlayCfg);
+      });
+      res();
+    };
+    img.onerror = res;
+    img.src = snapDataURL;
+  });
+}
+
+/* ────────────────────────────────────────────
+   CAMERA & AR LOOP
+──────────────────────────────────────────── */
+async function startCamera() {
+  if (camStream) return;
+
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+                (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+  const constraints = [
+    { video: { facingMode: { ideal: facingMode }, width: { ideal: isIOS ? 1280 : 1920 }, height: { ideal: isIOS ? 960 : 1440 } }, audio: false },
+    { video: { facingMode: { ideal: facingMode } }, audio: false },
+    { video: true, audio: false },
+  ];
+
+  for (const c of constraints) {
+    try {
+      camStream = await navigator.mediaDevices.getUserMedia(c);
+      break;
+    } catch(e) { console.warn('[CAM]', e.message); }
+  }
+
+  if (!camStream) {
+    toast('카메라 권한이 필요합니다. Safari 설정에서 허용해주세요.');
+    return;
+  }
+
+  const video = $('videoEl');
+  video.srcObject = camStream;
+  video.setAttribute('playsinline', '');
+  video.setAttribute('webkit-playsinline', '');
+  video.muted = true;
+  await video.play().catch(() => {});
+
+  // Start AR loop
+  startARLoop();
+
+  // Load MP in background
+  loadMediaPipe().catch(() => {});
+}
+
+function stopCamera() {
+  stopARLoop();
+  if (camStream) {
+    camStream.getTracks().forEach(t => t.stop());
+    camStream = null;
+    $('videoEl').srcObject = null;
+  }
+}
+
+let lastVideoTime = -1;
+
+function startARLoop() {
+  stopARLoop();
+  arFrozen = false;
+  $('freezeOverlay').classList.remove('show');
+
+  function loop() {
+    arLoopId = requestAnimationFrame(loop);
+
+    if (arFrozen) return;
+
+    const video = $('videoEl');
+    if (!video.videoWidth || video.readyState < 2) return;
+    if (video.currentTime === lastVideoTime) return;
+    lastVideoTime = video.currentTime;
+
+    // Detect
+    let zones = null;
+    if (mpReady && mpHandLandmarker) {
+      try {
+        if (mpHandLandmarker._type === 'legacy') {
+          // Legacy: async, handled via callback — skip detection here
+          // We'll use guide zones for live preview
+        } else {
+          // Tasks Vision: synchronous detectForVideo
+          const result = mpHandLandmarker.detectForVideo(video, performance.now());
+          zones = landmarksToZones(result, video.videoWidth, video.videoHeight);
+        }
+      } catch(e) {
+        // silent
+      }
+    }
+
+    // Update AR canvas
+    const arCanvas = $('arCanvas');
+    if (arCanvas) {
+      renderARFrame(arCanvas, video, zones, arDesignImgs);
+    }
+  }
+  loop();
+}
+
+function stopARLoop() {
+  if (arLoopId) { cancelAnimationFrame(arLoopId); arLoopId = null; }
+}
+
+/* ────────────────────────────────────────────
+   SNAP
+──────────────────────────────────────────── */
+async function snap() {
+  const video = $('videoEl');
+  if (!camStream || !video.videoWidth) {
+    toast('카메라가 준비되지 않았습니다.');
+    return;
+  }
+
+  flashEffect();
+
+  // Freeze AR
+  arFrozen = true;
+  $('freezeOverlay').classList.add('show');
+
+  // Get last known zones from AR canvas
+  // Re-run detection on current frame
+  let zones = null;
+  if (mpReady && mpHandLandmarker && mpHandLandmarker._type !== 'legacy') {
+    try {
+      const result = mpHandLandmarker.detectForVideo(video, performance.now());
+      zones = landmarksToZones(result, video.videoWidth, video.videoHeight);
+    } catch(e) {}
+  }
+
+  // Fallback to guide zones
+  if (!zones) {
+    zones = getGuideZones(video.videoWidth, video.videoHeight);
+    toast('손톱 위치를 자동으로 추정합니다', 2000);
+  } else {
+    toast(`${zones.length}개 손톱 인식 완료 ✓`, 1500);
+  }
+
+  // Capture frame
+  const MAX_W = 1920;
+  const rawW = video.videoWidth, rawH = video.videoHeight;
+  const ratio = Math.min(MAX_W / rawW, 1);
+  const snapW = Math.round(rawW * ratio);
+  const snapH = Math.round(rawH * ratio);
+
+  const sc = $('snapCanvas');
+  sc.width = snapW; sc.height = snapH;
+  const sctx = sc.getContext('2d');
+
+  if (facingMode === 'user') {
+    sctx.save(); sctx.translate(snapW, 0); sctx.scale(-1, 1);
+    sctx.drawImage(video, 0, 0, snapW, snapH);
+    sctx.restore();
+    // Mirror zones too
+    if (zones) zones = zones.map(z => ({ ...z, cx: rawW - z.cx }));
+  } else {
+    sctx.drawImage(video, 0, 0, snapW, snapH);
+  }
+
+  // Scale zones to snap resolution
+  const scaleX = snapW / rawW, scaleY = snapH / rawH;
+  if (zones) {
+    zones = zones.map(z => ({
+      ...z,
+      cx: z.cx * scaleX,
+      cy: z.cy * scaleY,
+      w:  z.w  * scaleX,
+      h:  z.h  * scaleY,
+    }));
+  }
+
+  const snapURL = sc.toDataURL('image/jpeg', 0.94);
+
+  // Store by phase
+  if (appMode === 'uniform') {
+    cachedSnap   = snapURL;
+    cachedZonesL = zones;
+  } else if (capturePhase === 'left') {
+    cachedSnapL  = snapURL;
+    cachedZonesL = zones;
+  } else {
+    cachedSnapR  = snapURL;
+    cachedZonesR = zones;
+  }
+
+  // Show freeze confirm
+  $('freezeLabel').textContent = zones
+    ? `${zones.length}개 손톱 인식 완료 — 적용할까요?`
+    : '손 위치 추정 완료 — 적용할까요?';
+}
+
+function getGuideZones(W, H) {
+  return GUIDE_ZONES_REAR.map(g => ({
+    finger:     g.finger,
+    hand:       'Left',
+    cx:         g.x * W,
+    cy:         g.y * H,
+    w:          g.rx * W * 2,
+    h:          g.ry * H * 2,
+    angle:      g.angleDeg * Math.PI / 180,
+    confidence: 0.5,
+    fromGuide:  true,
+  }));
+}
+
+/* ────────────────────────────────────────────
+   FREEZE CONFIRM
+──────────────────────────────────────────── */
+async function onFreezeOk() {
+  $('freezeOverlay').classList.remove('show');
+  arFrozen = false;
+  stopCamera();
+
+  if (appMode === 'individual' && capturePhase === 'left') {
+    // Need right hand too
+    capturePhase = 'right';
+    updateCameraHint();
+    updatePhaseIndicator();
+    await startCamera();
+    toast('왼손 촬영 완료! 이제 오른손을 촬영해주세요', 2500);
+    return;
+  }
+
+  // Go to result
+  await showResult();
+}
+
+function onFreezeRedo() {
+  $('freezeOverlay').classList.remove('show');
+  arFrozen = false;
+  // Resume AR loop
+  startARLoop();
+}
+
+/* ────────────────────────────────────────────
+   RESULT
+──────────────────────────────────────────── */
+async function showResult() {
+  showScreen('screenResult');
+
+  if (appMode === 'uniform') {
+    $('previewCanvas').classList.remove('hidden');
+    $('dualWrap').classList.add('hidden');
+    $('previewTabs').classList.add('hidden');
+
+    await renderToCanvas(
+      $('previewCanvas'),
+      cachedSnap,
+      cachedZonesL,
+      arDesignImgs
+    );
+  } else {
+    $('previewCanvas').classList.add('hidden');
+    $('dualWrap').classList.remove('hidden');
+    $('previewTabs').classList.remove('hidden');
+
+    await Promise.all([
+      renderToCanvas($('previewCanvasL'), cachedSnapL, cachedZonesL, arDesignImgs),
+      renderToCanvas($('previewCanvasR'), cachedSnapR, cachedZonesR, arDesignImgsR),
+    ]);
+  }
+
+  updateDesignInfoBar();
+}
+
+function redrawResult() {
+  if (appMode === 'uniform') {
+    renderToCanvas($('previewCanvas'), cachedSnap, cachedZonesL, arDesignImgs);
+  } else {
+    renderToCanvas($('previewCanvasL'), cachedSnapL, cachedZonesL, arDesignImgs);
+    renderToCanvas($('previewCanvasR'), cachedSnapR, cachedZonesR, arDesignImgsR);
+  }
+}
+
+/* ────────────────────────────────────────────
+   DESIGN IMAGES — load into memory
+──────────────────────────────────────────── */
+function loadDesignImages(designList) {
+  // designList: [thumb,index,middle,ring,pinky] Image objects or null
+  return Promise.all(designList.map(d => {
+    if (!d) return Promise.resolve(null);
+    const src = d.image_data || d.thumb_data;
+    if (!src) return Promise.resolve(null);
+    return new Promise(res => {
+      const img = new Image();
+      img.onload  = () => res(img);
+      img.onerror = () => res(null);
+      img.src = src;
+    });
+  }));
+}
+
+function applyUniformDesign(design) {
+  uniformDesign = design;
+  // 5 fingers all same design
+  return loadDesignImages([design, design, design, design, design])
+    .then(imgs => { arDesignImgs = imgs; });
+}
+
+/* ────────────────────────────────────────────
+   SLOT → FINGER MAPPING
+   후면 카메라, 맞보기 촬영:
+   고객 왼손 = 이미지 오른쪽
+   슬롯 0~4 = L5(새끼)→L1(엄지): finger[4,3,2,1,0]
+   슬롯 5~9 = R1(엄지)→R5(새끼): finger[0,1,2,3,4]
+──────────────────────────────────────────── */
+const SLOT_TO_FINGER_L = [4,3,2,1,0]; // slot 0→4: pinky,ring,mid,idx,thumb
+const SLOT_TO_FINGER_R = [0,1,2,3,4]; // slot 5→9: thumb,idx,mid,ring,pinky
+
+async function applyIndividualDesigns() {
+  // Left hand: FINGER_ORDER[i] → slot
+  const leftDesigns = FINGER_ORDER.map((_, fi) => {
+    const slotIdx = SLOT_TO_FINGER_L.indexOf(fi);
+    return slotIdx >= 0 ? individualSlots[slotIdx] : null;
+  });
+  const rightDesigns = FINGER_ORDER.map((_, fi) => {
+    const slotIdx = SLOT_TO_FINGER_R.indexOf(fi);
+    return slotIdx >= 0 ? individualSlots[5 + slotIdx] : null;
+  });
+
+  [arDesignImgs, arDesignImgsR] = await Promise.all([
+    loadDesignImages(leftDesigns),
+    loadDesignImages(rightDesigns),
+  ]);
+}
+
+/* ────────────────────────────────────────────
+   SCREENS
+──────────────────────────────────────────── */
+function showScreen(id) {
+  $$('.screen').forEach(s => s.classList.remove('active'));
+  $(id).classList.add('active');
+  currentScreen = id;
+}
+
+/* ────────────────────────────────────────────
+   DESIGN GRID
+──────────────────────────────────────────── */
+async function loadDesigns() {
+  $('designGrid').innerHTML = '<div class="d-loading"><span class="spin">◌</span></div>';
+  try {
+    designs = await DB.list();
+    renderDesignGrid();
+  } catch(e) {
+    $('designGrid').innerHTML = '<div class="d-empty">디자인을 불러올 수 없습니다.</div>';
+  }
+}
+
+function renderDesignGrid() {
+  const grid = $('designGrid');
+  const filtered = currentCat === 'all'
+    ? designs
+    : designs.filter(d => d.category === currentCat);
+
+  if (!filtered.length) {
+    grid.innerHTML = '<div class="d-empty">등록된 디자인이 없습니다.<br/>관리자 메뉴에서 추가해주세요.</div>';
+    return;
+  }
+
+  grid.innerHTML = filtered.map((d, i) => {
+    const src = d.thumb_data || d.image_data || '';
+    const isSelected = appMode === 'uniform'
+      ? uniformDesign?.id === d.id
+      : individualSlots.some(s => s?.id === d.id);
+    return `<div class="d-card${isSelected ? ' selected' : ''}" data-id="${d.id}"
+      style="animation:fadeIn .25s ${i * .04}s both">
+      ${src ? `<img src="${src}" alt="${d.name}" loading="lazy"/>` : ''}
+      <div class="d-card-name">${d.name}</div>
+      <div class="d-card-badge">${catLabel(d.category)}</div>
+    </div>`;
+  }).join('');
+
+  grid.querySelectorAll('.d-card').forEach(card => {
+    card.addEventListener('click', () => {
+      const d = designs.find(x => x.id == card.dataset.id);
+      if (d) openDesignModal(d);
+    });
+  });
+}
+
+function catLabel(cat) {
+  const map = { design:'디자인', tip:'팁', french:'프렌치', gel:'젤아트', ombre:'옴브레' };
+  return map[cat] || cat || '';
+}
+
+/* ────────────────────────────────────────────
+   DESIGN MODAL
+──────────────────────────────────────────── */
+let _modalDesign = null;
+
+function openDesignModal(design) {
+  _modalDesign = design;
+  const src = design.image_data || design.thumb_data || '';
+  $('modalImg').src = src;
+  $('modalCat').textContent  = catLabel(design.category);
+  $('modalName').textContent = design.name;
+  $('modalDesc').textContent = design.description || '';
+  $('modalPrice').textContent = design.price ? '₩' + Number(design.price).toLocaleString() : '';
+
+  const btn = $('modalApplyBtn');
+  if (appMode === 'uniform') {
+    btn.textContent = uniformDesign?.id === design.id
+      ? '✓ 선택됨 — 촬영으로 이동'
+      : '이 디자인 적용하기';
+  } else {
+    const slotNames = ['왼손 새끼','왼손 약','왼손 중','왼손 검지','왼손 엄지',
+                       '오른손 엄지','오른손 검지','오른손 중','오른손 약','오른손 새끼'];
+    btn.textContent = `${slotNames[currentSlot]}에 적용`;
+  }
+
+  $('designModal').classList.add('show');
+}
+
+function closeDesignModal() {
+  $('designModal').classList.remove('show');
+  _modalDesign = null;
+}
+
+async function applyFromModal() {
+  if (!_modalDesign) return;
+  const design = _modalDesign;
+  closeDesignModal();
+
+  if (appMode === 'uniform') {
+    await applyUniformDesign(design);
+    updateSelectedBar();
+    renderDesignGrid();
+    if (uniformDesign) {
+      $('selectedBar').classList.remove('hidden');
+      $('btnToCamera').classList.remove('hidden');
+    }
+    toast(`"${design.name}" 선택됨 ✓`);
+  } else {
+    individualSlots[currentSlot] = design;
+    await applyIndividualDesigns();
+    renderDesignGrid();
+    renderSlotBar();
+    const next = individualSlots.findIndex(s => !s);
+    if (next !== -1) { currentSlot = next; renderSlotBar(); }
+    else toast('10개 모두 선택 완료! ✓');
+    updateIndivCameraBtn();
+  }
+}
+
+function updateSelectedBar() {
+  if (!uniformDesign) return;
+  $('sbThumb').src = uniformDesign.thumb_data || uniformDesign.image_data || '';
+  $('sbName').textContent = uniformDesign.name;
+  $('sbMeta').textContent = catLabel(uniformDesign.category) +
+    (uniformDesign.price ? ' · ₩' + Number(uniformDesign.price).toLocaleString() : '');
+}
+
+function updateDesignInfoBar() {
+  const bar = $('designInfoBar');
+  if (appMode === 'uniform' && uniformDesign) {
+    $('dibThumb').src = uniformDesign.thumb_data || uniformDesign.image_data || '';
+    $('dibName').textContent = uniformDesign.name;
+    $('dibMeta').textContent = catLabel(uniformDesign.category);
+    bar.style.display = 'flex';
+  } else {
+    bar.style.display = 'none';
+  }
+}
+
+/* ────────────────────────────────────────────
+   SLOT BAR (individual)
+──────────────────────────────────────────── */
+const SLOT_LABELS = ['L5','L4','L3','L2','L1','R1','R2','R3','R4','R5'];
+const SLOT_NAMES  = ['왼새끼','왼약','왼중','왼검','왼엄','오엄','오검','오중','오약','오새끼'];
+
+function renderSlotBar() {
+  const row = $('slotRow');
+  row.innerHTML = SLOT_LABELS.map((lbl, i) =>
+    `<button class="slot-btn${i === currentSlot ? ' active' : ''}${individualSlots[i] ? ' filled' : ''}"
+      data-slot="${i}">${lbl}</button>`
+  ).join('');
+
+  row.querySelectorAll('.slot-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      currentSlot = +btn.dataset.slot;
+      renderSlotBar();
+      renderDesignGrid();
+    });
+  });
+
+  const filled = individualSlots.filter(Boolean).length;
+  $('slotLabel').textContent = filled === 0
+    ? `${SLOT_NAMES[currentSlot]}부터 선택하세요`
+    : `${filled} / ${SLOT_COUNT}개 선택됨 — 현재: ${SLOT_NAMES[currentSlot]}`;
+}
+
+function updateIndivCameraBtn() {
+  const allFilled = individualSlots.every(Boolean);
+  $('btnToCamera').classList.toggle('hidden', !allFilled);
+  if (allFilled) $('btnToCamera').classList.remove('hidden');
+}
+
+/* ────────────────────────────────────────────
+   CAMERA UI
+──────────────────────────────────────────── */
+function updateCameraHint() {
+  const el = $('camHint');
+  if (appMode === 'uniform') {
+    el.textContent = '손등이 위로 · 손가락을 가지런히 펴 주세요';
+    $('camTitle').textContent = '손 촬영';
+    $('phaseIndicator').style.display = 'none';
+  } else {
+    $('phaseIndicator').style.display = 'flex';
+    if (capturePhase === 'left') {
+      el.textContent = '왼손 손등이 위로 보이게 펼쳐 주세요';
+      $('camTitle').textContent = '왼손 촬영';
+    } else {
+      el.textContent = '오른손 손등이 위로 보이게 펼쳐 주세요';
+      $('camTitle').textContent = '오른손 촬영';
+    }
+  }
+}
+
+function updatePhaseIndicator() {
+  if (appMode !== 'individual') return;
+  $('phaseL').className = 'phase-dot' + (capturePhase === 'left' ? ' active' : ' done');
+  $('phaseR').className = 'phase-dot' + (capturePhase === 'right' ? ' active' : '');
+}
+
+/* ────────────────────────────────────────────
+   ADMIN
+──────────────────────────────────────────── */
+async function sha256(str) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+  return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2,'0')).join('');
+}
+
+async function setupAdmin() {
+  const stored = localStorage.getItem('syoni_admin_hash');
+  adminPinHash = stored || await sha256(DEFAULT_PIN);
+  if (!stored) localStorage.setItem('syoni_admin_hash', adminPinHash);
+}
+
+async function checkPin(input) {
+  const h = await sha256(input);
+  return h === adminPinHash;
+}
+
+function renderAdminList() {
+  const list = $('adminList');
+  $('adminCount').textContent = designs.length;
+  if (!designs.length) {
+    list.innerHTML = '<div style="padding:16px;color:var(--dust);font-size:.82rem;">등록된 디자인이 없습니다.</div>';
+    return;
+  }
+  list.innerHTML = designs.map(d => {
+    const src = d.thumb_data || d.image_data || '';
+    return `<div class="admin-item">
+      ${src ? `<img class="admin-item-thumb" src="${src}" alt=""/>` : '<div class="admin-item-thumb"></div>'}
+      <div class="admin-item-info">
+        <div class="admin-item-name">${d.name}</div>
+        <div class="admin-item-meta">${catLabel(d.category)}${d.price ? ' · ₩' + Number(d.price).toLocaleString() : ''}</div>
+      </div>
+      <button class="admin-item-del" data-id="${d.id}">🗑</button>
+    </div>`;
+  }).join('');
+
+  list.querySelectorAll('.admin-item-del').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if (!confirm('삭제할까요?')) return;
+      await DB.remove(Number(btn.dataset.id));
+      designs = await DB.list();
+      renderAdminList();
+      renderDesignGrid();
+      toast('삭제됨');
+    });
+  });
+}
+
+async function adminSave() {
+  const name = $('adminName').value.trim();
+  if (!name) { toast('이름을 입력해주세요.'); return; }
+  if (!adminImageDataURL) { toast('이미지를 선택해주세요.'); return; }
+
+  const item = {
+    name,
+    category:    $('adminCat').value,
+    price:       $('adminPrice').value || '',
+    description: $('adminDesc').value || '',
+    image_data:  adminImageDataURL,
+    thumb_data:  await makeThumb(adminImageDataURL, 300),
+    is_active:   true,
+  };
+
+  await DB.add(item);
+  designs = await DB.list();
+  renderAdminList();
+  renderDesignGrid();
+
+  // Reset form
+  $('adminName').value = '';
+  $('adminPrice').value = '';
+  $('adminDesc').value = '';
+  adminImageDataURL = null;
+  $('adminPreviewImg').style.display = 'none';
+  $('adminUploadArea').querySelector('.admin-upload-placeholder').style.display = '';
+
+  toast('저장됨 ✓');
+}
+
+function makeThumb(dataURL, maxSize) {
+  return new Promise(res => {
+    const img = new Image();
+    img.onload = () => {
+      const ratio = Math.min(maxSize / img.width, maxSize / img.height, 1);
+      const w = Math.round(img.width * ratio);
+      const h = Math.round(img.height * ratio);
+      const cv = document.createElement('canvas');
+      cv.width = w; cv.height = h;
+      cv.getContext('2d').drawImage(img, 0, 0, w, h);
+      res(cv.toDataURL('image/jpeg', 0.85));
+    };
+    img.onerror = () => res(dataURL);
+    img.src = dataURL;
+  });
+}
+
+/* ────────────────────────────────────────────
+   UTILS
+──────────────────────────────────────────── */
+function toast(msg, duration = 2200) {
+  const wrap = $('toastWrap');
+  const el   = document.createElement('div');
+  el.className = 'toast';
+  el.textContent = msg;
+  wrap.appendChild(el);
+  setTimeout(() => el.remove(), duration);
+}
+
+function flashEffect() {
+  const f = document.createElement('div');
+  f.className = 'flash-el';
+  document.body.appendChild(f);
+  requestAnimationFrame(() => {
+    f.style.opacity = '0.85';
+    setTimeout(() => {
+      f.style.opacity = '0';
+      setTimeout(() => f.remove(), 200);
+    }, 50);
+  });
+}
+
+function fileToDataURL(file) {
+  return new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = e => res(e.target.result);
+    r.onerror = rej;
+    r.readAsDataURL(file);
+  });
+}
+
+/* ────────────────────────────────────────────
+   SAVE / SHARE
+──────────────────────────────────────────── */
+function saveResult() {
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+                (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+  const canvases = appMode === 'uniform'
+    ? [$('previewCanvas')]
+    : [$('previewCanvasL'), $('previewCanvasR')];
+
+  canvases.filter(c => c && c.width).forEach((canvas, i) => {
+    const dataURL  = canvas.toDataURL('image/jpeg', 0.95);
+    const filename = `syoni-lab-${i === 1 ? 'right' : appMode === 'uniform' ? 'result' : 'left'}-${Date.now()}.jpg`;
+
+    if (isIOS) {
+      const win = window.open();
+      if (win) {
+        win.document.write(`<html><head>
+          <meta name="viewport" content="width=device-width,initial-scale=1">
+          <style>body{margin:0;background:#111;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;gap:16px;}
+          img{max-width:100%;max-height:80vh;border-radius:8px;}
+          p{color:#fff;font-family:-apple-system,sans-serif;font-size:.95rem;text-align:center;padding:0 24px;}</style>
+          </head><body>
+          <img src="${dataURL}"/>
+          <p>이미지를 <strong style="color:#c8a56a">꾹 눌러</strong> → <strong style="color:#c8a56a">사진에 저장</strong>하세요 📱</p>
+          </body></html>`);
+        win.document.close();
+      }
+    } else {
+      const a = document.createElement('a');
+      a.download = filename; a.href = dataURL;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    }
+  });
+
+  if (!isIOS) toast('저장됨 💾');
+}
+
+async function shareResult() {
+  const canvas = appMode === 'uniform' ? $('previewCanvas') : $('previewCanvasL');
+  if (!canvas?.width) { toast('먼저 결과를 생성해주세요.'); return; }
+
+  if (navigator.canShare) {
+    try {
+      const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.92));
+      const file = new File([blob], `syoni-lab-${Date.now()}.jpg`, { type: 'image/jpeg' });
+      if (navigator.canShare({ files: [file] })) {
+        await navigator.share({ title: 'SYONI LAB', files: [file] });
+        return;
+      }
+    } catch(e) {
+      if (e.name !== 'AbortError') console.warn('[Share]', e.message);
+      return;
+    }
+  }
+  toast('저장 후 직접 공유해주세요 📲');
+}
+
+/* ────────────────────────────────────────────
+   INIT — EVENT BINDING
+──────────────────────────────────────────── */
+async function init() {
+  await setupAdmin();
+  await loadDesigns();
+
+  /* Mode select */
+  $('btnModeUniform').addEventListener('click', () => {
+    appMode = 'uniform';
+    capturePhase = 'uniform';
+    uniformDesign = null;
+    arDesignImgs = [];
+    $('slotBar').classList.add('hidden');
+    $('selectedBar').classList.add('hidden');
+    $('btnToCamera').classList.add('hidden');
+    $('designTopTitle').textContent = '디자인 선택';
+    renderDesignGrid();
+    showScreen('screenDesign');
+    loadDesigns();
+  });
+
+  $('btnModeIndividual').addEventListener('click', () => {
+    appMode = 'individual';
+    capturePhase = 'left';
+    individualSlots = new Array(SLOT_COUNT).fill(null);
+    arDesignImgs = [];
+    arDesignImgsR = [];
+    currentSlot = 0;
+    $('slotBar').classList.remove('hidden');
+    $('selectedBar').classList.add('hidden');
+    $('btnToCamera').classList.add('hidden');
+    $('designTopTitle').textContent = '디자인 선택 (개별)';
+    renderSlotBar();
+    renderDesignGrid();
+    showScreen('screenDesign');
+    loadDesigns();
+  });
+
+  /* Design screen */
+  $('designBack').addEventListener('click', () => {
+    stopCamera();
+    showScreen('screenMode');
+  });
+
+  $$('.cat-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      $$('.cat-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentCat = btn.dataset.cat;
+      renderDesignGrid();
+    });
+  });
+
+  $('btnToCamera').addEventListener('click', goToCamera);
+  $('btnGoCamera').addEventListener('click', goToCamera);
+
+  async function goToCamera() {
+    if (appMode === 'uniform' && !uniformDesign) {
+      toast('먼저 디자인을 선택해주세요.');
+      return;
+    }
+    if (appMode === 'individual') {
+      const filled = individualSlots.filter(Boolean).length;
+      if (filled < SLOT_COUNT) {
+        toast(`아직 ${SLOT_COUNT - filled}개 더 선택해주세요.`);
+        return;
+      }
+    }
+    capturePhase = appMode === 'uniform' ? 'uniform' : 'left';
+    showScreen('screenCamera');
+    updateCameraHint();
+    updatePhaseIndicator();
+    await startCamera();
+  }
+
+  /* Camera screen */
+  $('camBack').addEventListener('click', () => {
+    stopCamera();
+    showScreen('screenDesign');
+  });
+
+  $('btnSnap').addEventListener('click', snap);
+  $('btnFreezeOk').addEventListener('click', onFreezeOk);
+  $('btnFreezeRedo').addEventListener('click', onFreezeRedo);
+
+  $('btnCamFlip').addEventListener('click', async () => {
+    facingMode = facingMode === 'environment' ? 'user' : 'environment';
+    stopCamera();
+    await startCamera();
+  });
+
+  $('btnCamUpload').addEventListener('click', () => $('fileInput').click());
+  $('fileInput').addEventListener('change', async e => {
+    const f = e.target.files[0];
+    if (!f) return;
+    e.target.value = '';
+    const dataURL = await fileToDataURL(f);
+    // Use as snap
+    cachedSnap = dataURL;
+    cachedZonesL = getGuideZones(1280, 960); // approx
+    toast('이미지 업로드됨 — 적용하려면 "적용" 버튼을 누르세요', 2500);
+    $('freezeOverlay').classList.add('show');
+    $('freezeLabel').textContent = '업로드 이미지로 적용할까요?';
+    arFrozen = true;
+  });
+
+  /* Design modal */
+  $('designModal').addEventListener('click', e => {
+    if (e.target === $('designModal')) closeDesignModal();
+  });
+  $('modalCancelBtn').addEventListener('click', closeDesignModal);
+  $('modalApplyBtn').addEventListener('click', applyFromModal);
+
+  /* Result screen */
+  $('resultBack').addEventListener('click', () => {
+    cachedSnap = cachedSnapL = cachedSnapR = null;
+    cachedZonesL = cachedZonesR = null;
+    showScreen('screenDesign');
+  });
+
+  $('btnRedo').addEventListener('click', async () => {
+    cachedSnap = cachedSnapL = cachedSnapR = null;
+    cachedZonesL = cachedZonesR = null;
+    capturePhase = appMode === 'uniform' ? 'uniform' : 'left';
+    showScreen('screenCamera');
+    updateCameraHint();
+    updatePhaseIndicator();
+    await startCamera();
+  });
+
+  $('btnChangeDesign').addEventListener('click', () => {
+    showScreen('screenDesign');
+  });
+
+  $('btnSave').addEventListener('click', saveResult);
+  $('btnShare').addEventListener('click', shareResult);
+
+  /* Adjust sliders */
+  $('slScale').addEventListener('input', () => {
+    overlayCfg.scale = +$('slScale').value / 100;
+    $('valScale').textContent = $('slScale').value + '%';
+    redrawResult();
+  });
+  $('slOffsetY').addEventListener('input', () => {
+    overlayCfg.offsetY = +$('slOffsetY').value;
+    $('valOffsetY').textContent = $('slOffsetY').value;
+    redrawResult();
+  });
+  $('slOpacity').addEventListener('input', () => {
+    overlayCfg.opacity = +$('slOpacity').value / 100;
+    $('valOpacity').textContent = $('slOpacity').value + '%';
+    redrawResult();
+  });
+
+  /* Shape buttons */
+  $$('.shape-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      $$('.shape-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentShape = btn.dataset.shape;
+      redrawResult();
+    });
+  });
+
+  /* Preview tabs */
+  $$('.ptab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      $$('.ptab').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const view = btn.dataset.view;
+      const lItem = $('previewCanvasL')?.parentElement;
+      const rItem = $('previewCanvasR')?.parentElement;
+      if (view === 'both') {
+        $('dualWrap').style.display = 'flex';
+        $('previewCanvasL').style.display = 'block';
+        $('previewCanvasR').style.display = 'block';
+      } else if (view === 'left') {
+        $('dualWrap').style.display = 'block';
+        $('previewCanvasL').style.display = 'block';
+        $('previewCanvasR').style.display = 'none';
+      } else {
+        $('dualWrap').style.display = 'block';
+        $('previewCanvasL').style.display = 'none';
+        $('previewCanvasR').style.display = 'block';
+      }
+    });
+  });
+
+  /* Admin trigger */
+  $('adminTrigger').addEventListener('click', () => {
+    $('pinInput').value = '';
+    $('pinErr').textContent = '';
+    $('pinModal').classList.add('show');
+    setTimeout(() => $('pinInput').focus(), 100);
+  });
+
+  $('pinCancel').addEventListener('click', () => {
+    $('pinModal').classList.remove('show');
+  });
+
+  $('pinSubmit').addEventListener('click', async () => {
+    const ok = await checkPin($('pinInput').value);
+    if (ok) {
+      $('pinModal').classList.remove('show');
+      renderAdminList();
+      showScreen('screenAdmin');
+    } else {
+      $('pinErr').textContent = '잘못된 PIN입니다.';
+      $('pinInput').value = '';
+      $('pinInput').focus();
+    }
+  });
+
+  $('pinInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter') $('pinSubmit').click();
+  });
+
+  $('adminBack').addEventListener('click', () => showScreen('screenMode'));
+
+  $('adminUploadArea').addEventListener('click', () => $('adminFileInput').click());
+  $('adminFileInput').addEventListener('change', async e => {
+    const f = e.target.files[0];
+    if (!f) return;
+    e.target.value = '';
+    adminImageDataURL = await fileToDataURL(f);
+    const img = $('adminPreviewImg');
+    img.src = adminImageDataURL;
+    img.style.display = 'block';
+    $('adminUploadArea').querySelector('.admin-upload-placeholder').style.display = 'none';
+  });
+
+  $('adminSaveBtn').addEventListener('click', adminSave);
+
+  console.log('[SYONI] v10 init complete');
+}
+
+// CSS animation
+const styleEl = document.createElement('style');
+styleEl.textContent = `@keyframes fadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:none} }`;
+document.head.appendChild(styleEl);
+
+// Boot
+init();
+</script>
+</body>
+</html>
