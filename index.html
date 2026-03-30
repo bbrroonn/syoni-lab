@@ -1464,26 +1464,103 @@ const NAIL_LM = {
 };
 
 // Nail dimension params per finger
-// hRatio: TIP→DIP 거리 대비 손톱 높이 비율 (실측 기반 상향)
+// hRatio: TIP→DIP 거리 대비 손톱 높이 비율
 // wRatio: 손톱 높이 대비 너비 비율
 // dipBlend: 네일 중심점 = TIP*(1-blend) + DIP*blend (클수록 아래)
-const FINGER_PARAMS = {
-  thumb:  { wRatio: 1.20, hRatio: 1.05, dipBlend: 0.62 },
-  index:  { wRatio: 1.05, hRatio: 1.00, dipBlend: 0.58 },
-  middle: { wRatio: 1.02, hRatio: 1.00, dipBlend: 0.56 },
-  ring:   { wRatio: 0.98, hRatio: 0.96, dipBlend: 0.56 },
-  pinky:  { wRatio: 0.90, hRatio: 0.92, dipBlend: 0.54 },
+
+// ── 펼친 손 파라미터 ──
+const FINGER_PARAMS_FLAT = {
+  thumb:  { wRatio: 1.05, hRatio: 0.90, dipBlend: 0.68 },
+  index:  { wRatio: 1.00, hRatio: 1.02, dipBlend: 0.65 },
+  middle: { wRatio: 0.98, hRatio: 1.02, dipBlend: 0.63 },
+  ring:   { wRatio: 0.95, hRatio: 0.98, dipBlend: 0.63 },
+  pinky:  { wRatio: 0.88, hRatio: 0.88, dipBlend: 0.60 },
 };
 
-// Fallback template zones (normalized, rear camera, left hand facing camera)
-// rx/ry: 이미지 너비/높이 대비 반경 (크게 조정)
-const GUIDE_ZONES_REAR = [
+// ── 접은 손 파라미터 ──
+// 접으면 TIP→DIP 거리가 30~40% 짧아지므로 hRatio 대폭 상향
+// 손톱이 정면을 향하므로 wRatio도 키움
+// 중심점은 TIP에 더 가깝게 (dipBlend 낮춤)
+const FINGER_PARAMS_CURLED = {
+  thumb:  { wRatio: 1.35, hRatio: 1.60, dipBlend: 0.45 },
+  index:  { wRatio: 1.20, hRatio: 1.75, dipBlend: 0.40 },
+  middle: { wRatio: 1.18, hRatio: 1.75, dipBlend: 0.38 },
+  ring:   { wRatio: 1.12, hRatio: 1.68, dipBlend: 0.38 },
+  pinky:  { wRatio: 1.00, hRatio: 1.55, dipBlend: 0.36 },
+};
+
+// ── 손 굽힘 감지 함수 ──
+// 각 손가락의 TIP이 MCP(관절)보다 손바닥 쪽에 있으면 접힌 것
+// PIP→TIP 방향과 MCP→PIP 방향의 각도 차이로 판단
+function detectCurledHand(landmarks, isNorm, W, H) {
+  const toX = v => isNorm ? v.x * W : v.x;
+  const toY = v => isNorm ? v.y * H : v.y;
+
+  // 검지~약지 3개 손가락의 굽힘 각도 평균으로 판단
+  const fingers = [
+    { tip: 8,  pip: 6,  mcp: 5  }, // index
+    { tip: 12, pip: 10, mcp: 9  }, // middle
+    { tip: 16, pip: 14, mcp: 13 }, // ring
+  ];
+
+  let curledCount = 0;
+  fingers.forEach(f => {
+    const tip = landmarks[f.tip];
+    const pip = landmarks[f.pip];
+    const mcp = landmarks[f.mcp];
+    if (!tip || !pip || !mcp) return;
+
+    const tipY  = toY(tip);
+    const pipY  = toY(pip);
+    const mcpY  = toY(mcp);
+
+    // 카메라 좌표계: Y가 아래로 증가
+    // 손가락이 접히면 TIP의 Y가 PIP의 Y보다 크거나 비슷해짐
+    // (손가락 끝이 아래로 내려옴)
+    const tipDipDist = Math.hypot(toX(tip) - toX(pip), tipY - pipY);
+    const pipMcpDist = Math.hypot(toX(pip) - toX(mcp), pipY - mcpY);
+
+    // TIP이 PIP보다 아래에 있거나 (Y가 큼), 또는
+    // TIP→PIP 거리가 PIP→MCP 거리보다 유의미하게 짧으면 접힌 것
+    if (tipY > pipY - 5 || tipDipDist < pipMcpDist * 0.75) {
+      curledCount++;
+    }
+  });
+
+  // 3개 중 2개 이상 접히면 접은 손으로 판단
+  return curledCount >= 2;
+}
+
+// ── 현재 사용할 파라미터 선택 ──
+// landmarksToZones 내부에서 동적으로 선택
+let FINGER_PARAMS = FINGER_PARAMS_FLAT; // 기본값
+
+// Fallback template zones (normalized, rear camera)
+// 펼친 손 기준
+const GUIDE_ZONES_FLAT = [
   { finger: 'thumb',  x: 0.15, y: 0.55, rx: 0.130, ry: 0.110, angleDeg: -32 },
   { finger: 'index',  x: 0.32, y: 0.27, rx: 0.105, ry: 0.130, angleDeg:  -7 },
   { finger: 'middle', x: 0.48, y: 0.19, rx: 0.105, ry: 0.138, angleDeg:   0 },
   { finger: 'ring',   x: 0.64, y: 0.26, rx: 0.100, ry: 0.128, angleDeg:   7 },
   { finger: 'pinky',  x: 0.79, y: 0.36, rx: 0.088, ry: 0.108, angleDeg:  14 },
 ];
+
+// 접은 손 가이드존 — 이 사진 기반으로 측정
+// 4개 손가락이 상단에 나란히, 엄지는 아래 왼쪽
+const GUIDE_ZONES_CURLED = [
+  { finger: 'thumb',  x: 0.22, y: 0.82, rx: 0.120, ry: 0.115, angleDeg:  15 },
+  { finger: 'index',  x: 0.28, y: 0.42, rx: 0.110, ry: 0.125, angleDeg:  -5 },
+  { finger: 'middle', x: 0.45, y: 0.35, rx: 0.115, ry: 0.128, angleDeg:   0 },
+  { finger: 'ring',   x: 0.62, y: 0.38, rx: 0.110, ry: 0.122, angleDeg:   5 },
+  { finger: 'pinky',  x: 0.78, y: 0.48, rx: 0.095, ry: 0.108, angleDeg:  12 },
+];
+
+// 현재 감지된 손 상태
+let isHandCurled = false;
+
+function GUIDE_ZONES_REAR() {
+  return isHandCurled ? GUIDE_ZONES_CURLED : GUIDE_ZONES_FLAT;
+}
 
 /* ────────────────────────────────────────────
    LANDMARK → NAIL ZONES
@@ -1512,6 +1589,18 @@ function landmarksToZones(landmarkResult, videoW, videoH) {
   }
 
   if (!handsData.length) return null;
+
+  // ── 손 굽힘 감지 — 첫 번째 손 기준으로 판단 ──
+  const firstHand = handsData[0];
+  isHandCurled = detectCurledHand(
+    firstHand.landmarks,
+    firstHand.isNorm,
+    videoW, videoH
+  );
+
+  // 굽힘 상태에 따라 파라미터 세트 선택
+  FINGER_PARAMS = isHandCurled ? FINGER_PARAMS_CURLED : FINGER_PARAMS_FLAT;
+  console.log('[HandDetect] 손 상태:', isHandCurled ? '접은 손' : '펼친 손');
 
   const zones = [];
 
@@ -1561,9 +1650,9 @@ function landmarksToZones(landmarkResult, videoW, videoH) {
         cx = tipX * (1 - fp.dipBlend) + dipX * fp.dipBlend;
         cy = tipY * (1 - fp.dipBlend) + dipY * fp.dipBlend;
 
-        // 엄지 크기: tipDip 기반이지만 MCP까지 거리도 고려
+        // 엄지 크기: tipDip 기반 (thumbLen 참고치만 사용)
         const thumbLen = Math.hypot(tipX - mcpX, tipY - mcpY);
-        h = Math.max(tipDip * fp.hRatio, thumbLen * 0.38);
+        h = Math.max(tipDip * fp.hRatio, thumbLen * 0.28);
         w = h * fp.wRatio;
 
       } else {
@@ -1577,9 +1666,16 @@ function landmarksToZones(landmarkResult, videoW, videoH) {
         w = h * fp.wRatio;
 
         // 각도: DIP→TIP 방향 기준
-        // canvas Y축은 아래가 + 이므로 +π/2 보정
         const rawAngle = Math.atan2(tipY - dipY, tipX - dipX);
-        angle = rawAngle + Math.PI / 2;
+        // 접은 손: 손톱이 정면을 향하므로 각도를 수직에 가깝게 보정
+        if (isHandCurled) {
+          // rawAngle을 수직(π/2)에 70% 가중 블렌딩
+          const vertAngle = -Math.PI / 2;
+          const blended = rawAngle * 0.3 + vertAngle * 0.7;
+          angle = blended + Math.PI / 2;
+        } else {
+          angle = rawAngle + Math.PI / 2;
+        }
       }
 
       // ── 최소 크기 보장 ──
@@ -1589,9 +1685,10 @@ function landmarksToZones(landmarkResult, videoW, videoH) {
       if (w < minDim * 0.6) w = minDim * 0.6;
 
       // ── 최대 크기 제한 ──
-      // 이미지 너비의 22% 초과 방지
-      const maxW = videoW * 0.22;
-      const maxH = videoH * 0.25;
+      // 손가락별 최대 너비 차별화
+      const maxWMap = { thumb: 0.16, index: 0.18, middle: 0.18, ring: 0.17, pinky: 0.14 };
+      const maxW = videoW * (maxWMap[finger] || 0.17);
+      const maxH = videoH * 0.22;
       if (w > maxW) { const r = maxW / w; w = maxW; h *= r; }
       if (h > maxH) { const r = maxH / h; h = maxH; w *= r; }
 
@@ -2014,7 +2111,7 @@ async function snap() {
 }
 
 function getGuideZones(W, H) {
-  return GUIDE_ZONES_REAR.map(g => ({
+  return GUIDE_ZONES_REAR().map(g => ({
     finger:     g.finger,
     hand:       'Left',
     cx:         g.x * W,
