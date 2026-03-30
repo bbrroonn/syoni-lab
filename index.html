@@ -1468,21 +1468,21 @@ const NAIL_LM = {
 // wRatio: 손톱 높이 대비 너비 비율
 // dipBlend: 네일 중심점 = TIP*(1-blend) + DIP*blend (클수록 아래)
 const FINGER_PARAMS = {
-  thumb:  { wRatio: 1.10, hRatio: 0.92, dipBlend: 0.52 },
-  index:  { wRatio: 0.95, hRatio: 0.88, dipBlend: 0.48 },
-  middle: { wRatio: 0.92, hRatio: 0.88, dipBlend: 0.46 },
-  ring:   { wRatio: 0.88, hRatio: 0.85, dipBlend: 0.46 },
-  pinky:  { wRatio: 0.82, hRatio: 0.82, dipBlend: 0.44 },
+  thumb:  { wRatio: 1.20, hRatio: 1.05, dipBlend: 0.62 },
+  index:  { wRatio: 1.05, hRatio: 1.00, dipBlend: 0.58 },
+  middle: { wRatio: 1.02, hRatio: 1.00, dipBlend: 0.56 },
+  ring:   { wRatio: 0.98, hRatio: 0.96, dipBlend: 0.56 },
+  pinky:  { wRatio: 0.90, hRatio: 0.92, dipBlend: 0.54 },
 };
 
 // Fallback template zones (normalized, rear camera, left hand facing camera)
 // rx/ry: 이미지 너비/높이 대비 반경 (크게 조정)
 const GUIDE_ZONES_REAR = [
-  { finger: 'thumb',  x: 0.15, y: 0.54, rx: 0.110, ry: 0.095, angleDeg: -32 },
-  { finger: 'index',  x: 0.32, y: 0.27, rx: 0.090, ry: 0.115, angleDeg:  -7 },
-  { finger: 'middle', x: 0.48, y: 0.19, rx: 0.088, ry: 0.120, angleDeg:   0 },
-  { finger: 'ring',   x: 0.64, y: 0.26, rx: 0.084, ry: 0.112, angleDeg:   7 },
-  { finger: 'pinky',  x: 0.79, y: 0.36, rx: 0.072, ry: 0.095, angleDeg:  14 },
+  { finger: 'thumb',  x: 0.15, y: 0.55, rx: 0.130, ry: 0.110, angleDeg: -32 },
+  { finger: 'index',  x: 0.32, y: 0.27, rx: 0.105, ry: 0.130, angleDeg:  -7 },
+  { finger: 'middle', x: 0.48, y: 0.19, rx: 0.105, ry: 0.138, angleDeg:   0 },
+  { finger: 'ring',   x: 0.64, y: 0.26, rx: 0.100, ry: 0.128, angleDeg:   7 },
+  { finger: 'pinky',  x: 0.79, y: 0.36, rx: 0.088, ry: 0.108, angleDeg:  14 },
 ];
 
 /* ────────────────────────────────────────────
@@ -1541,7 +1541,7 @@ function landmarksToZones(landmarkResult, videoW, videoH) {
       // Distance TIP→DIP, DIP→PIP
       const tipDip = Math.hypot(tipX - dipX, tipY - dipY);
       const dipPip = Math.hypot(dipX - pipX, dipY - pipY);
-      if (tipDip < 4 || dipPip < 4) return;
+      if (tipDip < 2 || dipPip < 2) return;
 
       // ── 엄지 전용 처리 ──
       // 엄지는 다른 손가락과 완전히 다른 각도/비율을 가짐
@@ -1583,11 +1583,10 @@ function landmarksToZones(landmarkResult, videoW, videoH) {
       }
 
       // ── 최소 크기 보장 ──
-      // 화면에서 너무 작게 나오는 경우 강제 보정
-      // 이미지 짧은 변의 최소 6% 이상
-      const minDim = Math.min(videoW, videoH) * 0.06;
+      // 이미지 짧은 변의 최소 8% 이상 보장
+      const minDim = Math.min(videoW, videoH) * 0.08;
       if (h < minDim) { const r = minDim / h; h = minDim; w *= r; }
-      if (w < minDim * 0.5) w = minDim * 0.5;
+      if (w < minDim * 0.6) w = minDim * 0.6;
 
       // ── 최대 크기 제한 ──
       // 이미지 너비의 22% 초과 방지
