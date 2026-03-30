@@ -529,6 +529,13 @@ input[type=range]::-webkit-slider-thumb {
 }
 @keyframes toastIn { from{opacity:0;transform:translateY(5px) scale(.96)} to{opacity:1;transform:none} }
 
+.sq-row { display:flex; align-items:center; gap:6px; }
+.sq-dot { font-size:.65rem; color:rgba(255,255,255,.3); transition:color .3s; }
+.sq-dot.green  { color:#2ecc71; }
+.sq-dot.yellow { color:#f39c12; }
+.sq-dot.red    { color:#e74c3c; }
+.sq-label { font-size:.65rem; color:rgba(255,255,255,.7); letter-spacing:.03em; }
+
 .hidden { display: none !important; }
 canvas { display: block; }
 </style>
@@ -603,6 +610,28 @@ canvas { display: block; }
 
     <!-- 탭 마커들 -->
     <div id="tapMarkers"></div>
+
+    <!-- 촬영 적합 판단 신호등 -->
+    <div id="shotQuality" style="
+      position:absolute; top:calc(var(--safe-top)+56px); right:12px;
+      z-index:20; display:flex; flex-direction:column; gap:5px;
+      background:rgba(0,0,0,.5); border-radius:10px;
+      padding:8px 10px; backdrop-filter:blur(8px);
+      -webkit-backdrop-filter:blur(8px);
+    ">
+      <div class="sq-row" id="sqLight">
+        <span class="sq-dot" id="sqLightDot">⬤</span>
+        <span class="sq-label">조명</span>
+      </div>
+      <div class="sq-row" id="sqHand">
+        <span class="sq-dot" id="sqHandDot">⬤</span>
+        <span class="sq-label">손 감지</span>
+      </div>
+      <div class="sq-row" id="sqStill">
+        <span class="sq-dot" id="sqStillDot">⬤</span>
+        <span class="sq-label">흔들림</span>
+      </div>
+    </div>
 
     <!-- AI 감지 중 표시 -->
     <div class="detect-progress" id="detectProgress">
@@ -776,6 +805,52 @@ canvas { display: block; }
       <button class="modal-btn-primary" id="modalApplyBtn">이 디자인 적용하기</button>
       <button class="modal-btn-secondary" id="modalCancelBtn">취소</button>
     </div>
+  </div>
+</div>
+
+<!-- 업로드 가이드 팝업 -->
+<div class="pin-modal" id="uploadGuideModal">
+  <div class="pin-card" style="max-width:320px;text-align:left;">
+    <div style="font-family:var(--ff-serif);font-size:1.3rem;color:var(--ink);margin-bottom:4px;">이미지 업로드 가이드</div>
+    <div style="font-size:.75rem;color:var(--dust);margin-bottom:16px;">좋은 결과를 위해 아래 기준을 맞춰주세요</div>
+
+    <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:18px;">
+      <div style="display:flex;gap:10px;align-items:flex-start;">
+        <span style="font-size:1.1rem;flex-shrink:0;">✅</span>
+        <div>
+          <div style="font-size:.82rem;font-weight:500;color:var(--ink);">손톱 하나만 클로즈업</div>
+          <div style="font-size:.72rem;color:var(--dust);margin-top:2px;">손 전체 사진 X — 손톱 하나가 화면 대부분을 차지해야 함</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:10px;align-items:flex-start;">
+        <span style="font-size:1.1rem;flex-shrink:0;">✅</span>
+        <div>
+          <div style="font-size:.82rem;font-weight:500;color:var(--ink);">정면 각도</div>
+          <div style="font-size:.72rem;color:var(--dust);margin-top:2px;">비스듬한 각도 X — 손톱이 카메라를 정면으로 바라보는 사진</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:10px;align-items:flex-start;">
+        <span style="font-size:1.1rem;flex-shrink:0;">✅</span>
+        <div>
+          <div style="font-size:.82rem;font-weight:500;color:var(--ink);">단색 또는 흰 배경</div>
+          <div style="font-size:.72rem;color:var(--dust);margin-top:2px;">복잡한 배경 X — 배경이 단색이어야 경계가 자연스럽게 합성됨</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:10px;align-items:flex-start;">
+        <span style="font-size:1.1rem;flex-shrink:0;">✅</span>
+        <div>
+          <div style="font-size:.82rem;font-weight:500;color:var(--ink);">최소 500×500px</div>
+          <div style="font-size:.72rem;color:var(--dust);margin-top:2px;">작은 이미지 X — 너무 작으면 합성 시 흐릿하게 보임</div>
+        </div>
+      </div>
+    </div>
+
+    <label style="display:flex;align-items:center;gap:8px;margin-bottom:14px;cursor:pointer;">
+      <input type="checkbox" id="uploadGuideCheck" style="width:16px;height:16px;accent-color:var(--gold);"/>
+      <span style="font-size:.75rem;color:var(--dust);">다시 보지 않기</span>
+    </label>
+
+    <button class="pin-submit" id="uploadGuideConfirm" style="background:var(--ink);color:var(--gold-lt);">확인했습니다 →</button>
   </div>
 </div>
 
@@ -1661,11 +1736,13 @@ async function startCamera() {
   resetDetection();
   updateStatusBadge(mpReady ? 'detecting' : 'loading');
   startARLoop();
+  startQualityCheck(); // 신호등 시작
   loadMediaPipe().catch(()=>{});
 }
 
 function stopCamera() {
   stopARLoop();
+  stopQualityCheck(); // 신호등 종료
   if (camStream) {
     camStream.getTracks().forEach(t=>t.stop());
     camStream = null;
@@ -1960,6 +2037,130 @@ function renderAdminList() {
   });
 }
 
+/* ══════════════════════════════════════════════
+   업로드 가이드 팝업
+══════════════════════════════════════════════ */
+function showUploadGuide(callback) {
+  const skip = localStorage.getItem('shoni_upload_guide_skip');
+  if (skip === '1') { callback(); return; }
+
+  $('uploadGuideModal').classList.add('show');
+
+  $('uploadGuideConfirm').onclick = () => {
+    if ($('uploadGuideCheck').checked) {
+      localStorage.setItem('shoni_upload_guide_skip', '1');
+    }
+    $('uploadGuideModal').classList.remove('show');
+    callback();
+  };
+}
+
+/* ══════════════════════════════════════════════
+   촬영 적합 판단 — 실시간 신호등
+   밝기 / 손 감지 / 흔들림 3가지 체크
+══════════════════════════════════════════════ */
+let _prevFrame    = null; // 흔들림 감지용 이전 프레임
+let _qualityTimer = null;
+
+function startQualityCheck() {
+  stopQualityCheck();
+  _qualityTimer = setInterval(_runQualityCheck, 400); // 0.4초마다
+}
+
+function stopQualityCheck() {
+  if (_qualityTimer) { clearInterval(_qualityTimer); _qualityTimer = null; }
+  // 신호등 회색으로 초기화
+  ['sqLightDot','sqHandDot','sqStillDot'].forEach(id => {
+    const el = $(id); if (!el) return;
+    el.className = 'sq-dot';
+  });
+}
+
+function _runQualityCheck() {
+  const video = $('videoEl');
+  if (!video || !video.videoWidth || video.readyState < 2) return;
+
+  const W = Math.min(video.videoWidth, 160);
+  const H = Math.round(video.videoHeight * W / video.videoWidth);
+
+  const cv  = document.createElement('canvas');
+  cv.width = W; cv.height = H;
+  const ctx = cv.getContext('2d');
+  ctx.drawImage(video, 0, 0, W, H);
+
+  let data;
+  try { data = ctx.getImageData(0, 0, W, H).data; }
+  catch(e) { return; }
+
+  // ── 1. 밝기 체크 ──
+  let lumSum = 0, count = 0;
+  for (let i = 0; i < data.length; i += 4) {
+    lumSum += 0.299*data[i] + 0.587*data[i+1] + 0.114*data[i+2];
+    count++;
+  }
+  const avgLum = lumSum / count;
+  let lightState;
+  if (avgLum >= 60 && avgLum <= 210)  lightState = 'green';   // 적정
+  else if (avgLum < 40 || avgLum > 230) lightState = 'red';   // 너무 어둡거나 밝음
+  else                                  lightState = 'yellow'; // 경계
+
+  // ── 2. 손 감지 체크 ──
+  // 피부색 픽셀 비율로 판단 (RGB 범위로 간이 피부색 감지)
+  let skinCount = 0;
+  for (let i = 0; i < data.length; i += 4) {
+    const r = data[i], g = data[i+1], b = data[i+2];
+    if (r > 80 && r < 250 && g > 50 && g < 200 && b > 30 && b < 180 &&
+        r > g && r > b && (r - Math.min(g,b)) > 15) {
+      skinCount++;
+    }
+  }
+  const skinRatio = skinCount / count;
+  let handState;
+  if (skinRatio >= 0.15 && skinRatio <= 0.75) handState = 'green';   // 손 있음
+  else if (skinRatio < 0.08)                  handState = 'red';     // 손 없음
+  else                                         handState = 'yellow';  // 불확실
+
+  // ── 3. 흔들림 체크 ──
+  let stillState = 'green';
+  if (_prevFrame) {
+    let diff = 0;
+    const sampleStep = 8; // 픽셀 샘플링 간격
+    let sampleCount  = 0;
+    for (let i = 0; i < Math.min(data.length, _prevFrame.length); i += 4 * sampleStep) {
+      diff += Math.abs(data[i] - _prevFrame[i]) +
+              Math.abs(data[i+1] - _prevFrame[i+1]) +
+              Math.abs(data[i+2] - _prevFrame[i+2]);
+      sampleCount++;
+    }
+    const avgDiff = diff / (sampleCount * 3);
+    if      (avgDiff < 8)  stillState = 'green';   // 안정
+    else if (avgDiff < 20) stillState = 'yellow';  // 약간 흔들림
+    else                   stillState = 'red';     // 많이 흔들림
+  }
+  _prevFrame = new Uint8ClampedArray(data);
+
+  // ── UI 업데이트 ──
+  _setDot('sqLightDot', lightState);
+  _setDot('sqHandDot',  handState);
+  _setDot('sqStillDot', stillState);
+
+  // 전체 OK면 자동 감지 힌트
+  if (lightState === 'green' && handState === 'green' && stillState === 'green') {
+    $('camHint').textContent = '✓ 촬영 조건 양호 — 손톱 인식 중...';
+  } else {
+    const issues = [];
+    if (lightState !== 'green') issues.push(avgLum < 60 ? '조명이 어둡습니다' : '조명이 너무 밝습니다');
+    if (handState  !== 'green') issues.push('손을 화면 안으로 가져오세요');
+    if (stillState !== 'green') issues.push('손을 고정해주세요');
+    if (issues.length) $('camHint').textContent = issues[0];
+  }
+}
+
+function _setDot(id, state) {
+  const el = $(id); if (!el) return;
+  el.className = 'sq-dot ' + state;
+}
+
 let adminImgDataURL = null;
 async function adminSave() {
   const name = $('adminName').value.trim();
@@ -2191,7 +2392,9 @@ async function init() {
   });
   $('pinInput').addEventListener('keydown',e=>{ if(e.key==='Enter') $('pinSubmit').click(); });
   $('adminBack').addEventListener('click',()=>showScreen('screenMode'));
-  $('adminUploadArea').addEventListener('click',()=>$('adminFileInput').click());
+  $('adminUploadArea').addEventListener('click', () => {
+    showUploadGuide(() => $('adminFileInput').click());
+  });
   $('adminFileInput').addEventListener('change', async e=>{
     const f=e.target.files[0]; if(!f) return; e.target.value='';
     adminImgDataURL=await fileToDataURL(f);
