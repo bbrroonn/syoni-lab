@@ -1164,21 +1164,36 @@ function drawNailOverlay(ctx, zone, designImg, cfg) {
   (SHAPES[currentShape] || SHAPES.round)(hw, hh, ctx);
   ctx.clip();
 
-  // 디자인 이미지
+  // 디자인 이미지 — 중앙 크롭해서 손톱에 꽉 채움
   const iw = designImg.naturalWidth || designImg.width;
   const ih = designImg.naturalHeight || designImg.height;
-  let dw, dh;
-  if (iw/ih > nw/nh) { dh=nh; dw=dh*(iw/ih); }
-  else               { dw=nw; dh=dw*(ih/iw); }
+  // 손톱 비율에 맞게 원본에서 자를 영역 계산 (center crop)
+  const nailRatio = nw / nh;
+  const imgRatio  = iw / ih;
+  let sx, sy, sw, sh;
+  if (imgRatio > nailRatio) {
+    // 원본이 더 넓음 → 높이 기준, 좌우 잘라냄
+    sh = ih;
+    sw = sh * nailRatio;
+    sx = (iw - sw) / 2;
+    sy = 0;
+  } else {
+    // 원본이 더 좁음 → 폭 기준, 상하 잘라냄 (상단 1/4 지점 기준)
+    sw = iw;
+    sh = sw / nailRatio;
+    sx = 0;
+    sy = ih * 0.25; // 상단 25% 지점부터 — 손톱 색상이 잘 보이는 영역
+    if (sy + sh > ih) sy = ih - sh;
+  }
 
   ctx.globalAlpha = cfg.opacity;
   ctx.globalCompositeOperation = 'source-over';
-  ctx.drawImage(designImg, -dw/2, -dh/2, dw, dh);
+  ctx.drawImage(designImg, sx, sy, sw, sh, -nw/2, -nh/2, nw, nh);
 
   // Multiply 블렌딩
   ctx.globalCompositeOperation = 'multiply';
   ctx.globalAlpha = 0.10;
-  ctx.drawImage(designImg, -dw/2, -dh/2, dw, dh);
+  ctx.drawImage(designImg, sx, sy, sw, sh, -nw/2, -nh/2, nw, nh);
 
   // 큐티클 그림자
   ctx.globalCompositeOperation = 'multiply';
@@ -2020,10 +2035,8 @@ async function init() {
   // ── 테스트 디자인 자동 로드 ──
   if (typeof TEST_DESIGNS_DATA !== 'undefined') {
     const existing = await DB.list();
-    const existingTestIds = existing.filter(d => d.is_test).map(d => d.id);
-    for (const id of existingTestIds) { await DB.remove(id); }
+    for (const d of existing) { try { await DB.remove(d.id); } catch(e){} }
     for (const d of TEST_DESIGNS_DATA) { await DB.add(d); }
-    console.log('[TEST] 테스트 디자인 6개 재로드');
   }
   // ── 테스트 로드 끝 ──
 
