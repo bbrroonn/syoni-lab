@@ -971,12 +971,20 @@ const NAIL_LM = {
 
 // 손 굽힘 감지
 function isCurled(landmarks, isNorm, W, H) {
-  const toY = v => isNorm ? v.y * H : v.y;
+  const toXY = v => isNorm ? [v.x*W, v.y*H] : [v.x, v.y];
   let cnt = 0;
-  [[8,6,5],[12,10,9],[16,14,13]].forEach(([tip,pip,mcp]) => {
-    const tipY = toY(landmarks[tip]);
-    const pipY = toY(landmarks[pip]);
-    if (tipY > pipY - 5) cnt++;
+  // tip-pip-mcp 각도로 굽힘 판단 — y축 방향 무관
+  [[8,6,5],[12,10,9],[16,14,13],[20,18,17]].forEach(([tip,pip,mcp]) => {
+    const [tx,ty] = toXY(landmarks[tip]);
+    const [px,py] = toXY(landmarks[pip]);
+    const [mx,my] = toXY(landmarks[mcp]);
+    const v1 = [tx-px, ty-py];
+    const v2 = [mx-px, my-py];
+    const dot = v1[0]*v2[0] + v1[1]*v2[1];
+    const mag = Math.hypot(...v1) * Math.hypot(...v2);
+    if (mag < 1) return;
+    // cos > 0.1 이면 tip이 mcp 방향으로 굽어있음 (접힌 상태)
+    if (dot/mag > 0.1) cnt++;
   });
   return cnt >= 2;
 }
